@@ -1,15 +1,22 @@
-mod simulation;
-mod agent;
-mod message_bus;
 mod ecs;
+mod lua;
 
-use crate::agent::LuaAgent;
 
-fn main() {
+use mlua::prelude::*;
 
-    let mut sim = simulation::SimulationEngine::new();
-    sim.add_agent(Box::new(LuaAgent::new(1, "Agent1".to_string())));
-    sim.advance_for(10);
+fn main() -> LuaResult<()>  {
+    let lua = Lua::new();
+
+    let map_table = lua.create_table()?;
+    map_table.set(1, "one")?;
+    map_table.set("two", 2)?;
+
+    lua.globals().set("map_table", map_table)?;
+    
+
+    lua.load("for k,v in pairs(map_table) do print(k,v) end").exec()?;
 
     println!("Hello, world!");
+
+    Ok(())
 }
