@@ -94,11 +94,15 @@ impl<'a> WorldContext<'a> {
         }
     }
 
-    pub unsafe fn get_components<T: Component + 'static>(&mut self) -> Option<&mut HashMap<u32, Box<dyn Component>>> {
+    pub fn get_components<T: Component + 'static>(&self) -> Option<&HashMap<u32, Box<dyn Component>>> {
+        self.components.get(&TypeId::of::<T>())
+    }
+
+    pub fn get_components_mut<T: Component + 'static>(&mut self) -> Option<&mut HashMap<u32, Box<dyn Component>>> {
         self.components.get_mut(&TypeId::of::<T>())
     }
 
-    pub unsafe fn get_component<T : Component + 'static>(
+    pub fn get_component<T : Component + 'static>(
         &self,
         entity_id: u32,
     ) -> Option<&T> {

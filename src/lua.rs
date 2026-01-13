@@ -66,12 +66,8 @@ impl LuaScriptSystem {
 
 impl System for LuaScriptSystem {
     fn update(&mut self, current_step: u32, ctx: &mut crate::ecs::world::WorldContext) {
-
-        let luaComponents = ctx.get_components::<LuaScriptComponent>();
-        if let Some(luaComps) = luaComponents {
+        if let Some(luaComps) = ctx.get_components::<LuaScriptComponent>() {
             for (_, comp) in luaComps.iter() {
-                 
-
                 if let Some(grid) = ctx.get_component::<GridComponent>(comp.entity_id()) {
                     println!(
                         "Entity {} is at position ({}, {})\n",
