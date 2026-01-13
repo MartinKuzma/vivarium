@@ -1,4 +1,5 @@
 use super::world::WorldContext;
+use std::cell::RefCell;
 
 // System trait defining behavior for systems that operate on entities
 // System is responsible for updating specific aspects of entities based on their components

@@ -7,8 +7,8 @@ use super::messaging::{MessageBus, MessageContent};
 use super::system::System;
 
 pub struct World {
+    components: HashMap<TypeId, HashMap<u32, Box<dyn Component>>>, // Components organized by type and entity ID
     systems: Vec<Box<dyn System>>, // Systems managing entity behavior
-    components: HashMap<TypeId, Box<dyn Any>>, // Components categorized by type and entity ID
     msg_bus: MessageBus,
 }
 
@@ -21,8 +21,8 @@ pub enum Command {
 impl World {
     pub fn new() -> Self {
         World {
-            systems: Vec::new(),
             components: HashMap::new(),
+            systems: Vec::new(),
             msg_bus: MessageBus::new(),
         }
     }
@@ -38,8 +38,16 @@ impl World {
             system.update(current_step, &mut wctx);
         }
 
-        let commands = wctx.commands;
-        self.apply_commands(commands);
+        // let commands = wctx.commands;
+        // self.apply_commands(commands);
+    }
+
+    pub fn add_component(&mut self, entity_id: u32, component: Box<dyn Component>) {
+        let comp_type = component.type_id();
+        self.components
+            .entry(comp_type)
+            .or_insert_with(HashMap::new)
+            .insert(entity_id, component);
     }
 
     fn apply_commands(&mut self, commands: Vec<Command>) {
@@ -69,14 +77,14 @@ impl World {
 }
 
 pub struct WorldContext<'a> {
+    components: &'a mut HashMap<TypeId, HashMap<u32, Box<dyn Component>>>,
     commands: Vec<Command>,
-    components: &'a mut HashMap<TypeId, Box<dyn Any>>,
     msg_bus: &'a mut MessageBus,
 }
 
 impl<'a> WorldContext<'a> {
     pub fn new(
-        components: &'a mut HashMap<TypeId, Box<dyn Any>>,
+        components: &'a mut HashMap<TypeId, HashMap<u32, Box<dyn Component>>>,
         msg_bus: &'a mut MessageBus,
     ) -> Self {
         WorldContext {
@@ -86,8 +94,28 @@ impl<'a> WorldContext<'a> {
         }
     }
 
-    pub fn get_components<T: Component + 'static>(&mut self) -> Option<&mut HashMap<u32, T>> {
-        self.components.get_mut(&TypeId::of::<T>()).and_then(|any| any.downcast_mut::<HashMap<u32, T>>())
+    pub unsafe fn get_components<T: Component + 'static>(&mut self) -> Option<&mut HashMap<u32, Box<dyn Component>>> {
+        self.components.get_mut(&TypeId::of::<T>())
+    }
+
+    pub unsafe fn get_component<T : Component + 'static>(
+        &self,
+        entity_id: u32,
+    ) -> Option<&T> {
+        self.components
+            .get(&TypeId::of::<T>())
+            .and_then(|comp_map| comp_map.get(&entity_id))
+            .and_then(|component| component.as_any().downcast_ref::<T>())
+    }
+
+    pub fn get_component_mut<T : Component + 'static>(
+        &mut self,
+        entity_id: u32,
+    ) -> Option<&mut T> {
+        self.components
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|comp_map| comp_map.get_mut(&entity_id))
+            .and_then(|component| component.as_mut().as_any_mut().downcast_mut::<T>())
     }
 
     pub fn remove_entity(&mut self, entity_id: u32) {
@@ -101,8 +129,4 @@ impl<'a> WorldContext<'a> {
     pub fn remove_component(&mut self, entity_id: u32, component_type: TypeId) {
         self.commands.push(Command::RemoveComponent(entity_id, component_type));
     }
-
-    // pub fn send_message(&mut self,  , content: MessageContent, current_step: u32, delay: u32, recipient_component: TypeId) {
-    //     self.msg_bus.schedule_message(sender_id, recipient_id, content, current_step, delay, recipient_component);
-    // }
 }
