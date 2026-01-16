@@ -1,14 +1,20 @@
 use std::{any::TypeId, collections::BinaryHeap, time};
 
 pub struct MessageBus {
+    current_time: time::Instant,
     messages: BinaryHeap<Message>,
 }
 
 impl MessageBus {
     pub fn new() -> Self {
         MessageBus {
+            current_time: time::Instant::now(),
             messages: BinaryHeap::new(),
         }
+    }
+
+    pub fn update_time(&mut self, new_time: time::Instant) {
+        self.current_time = new_time;
     }
 
     pub fn schedule_message(
@@ -16,14 +22,13 @@ impl MessageBus {
         receiver: MessageReceiver,
         kind: String,
         content: MessageContent,
-        scheduled_at : time::Instant,
         delay: time::Duration,
     ) {
         let message = Message {
             receiver,
             content,
             kind,
-            receive_step: scheduled_at + delay,
+            receive_step: self.current_time + delay,
         };
 
         self.messages.push(message);
@@ -31,9 +36,9 @@ impl MessageBus {
 
     // Retrieve one message scheduled for delivery at the current step
     // Returns None if no messages are deliverable at this step
-    pub fn get_deliverable_message(&mut self, current_time: time::Instant) -> Option<Message> {
+    pub fn get_deliverable_message(&mut self) -> Option<Message> {
         match self.messages.peek() {
-            Some(msg) if msg.receive_step <= current_time => Some(self.messages.pop().unwrap()),
+            Some(msg) if msg.receive_step <= self.current_time => Some(self.messages.pop().unwrap()),
             _ => None,
         }
     }
@@ -90,49 +95,49 @@ mod tests {
         let mut bus = MessageBus::new();
         let mut current_time = time::Instant::now();
 
+        bus.update_time(current_time);
+
         bus.schedule_message(
             MessageReceiver::Entity { id: 1 },
             String::from("Greeting"),
             MessageContent::Text("Hello".to_string()),
-            current_time,
             time::Duration::from_secs(3),
         );
         bus.schedule_message(
             MessageReceiver::Entity { id: 2 },
             String::from("Greeting"),
             MessageContent::Text("Hi".to_string()),
-            current_time + time::Duration::from_secs(1),
             time::Duration::from_secs(3),
         );
+        
         bus.schedule_message(
             MessageReceiver::Entity { id: 2 },
             String::from("Greeting"),
             MessageContent::Text("Hi, again".to_string()),
-            current_time + time::Duration::from_secs(2),
             time::Duration::from_secs(2),
         );
 
         current_time += time::Duration::from_secs(2);
         // At step 2, no messages should be deliverable
-        assert!(bus.get_deliverable_message(current_time).is_none());
+        assert!(bus.get_deliverable_message().is_none());
 
         current_time += time::Duration::from_secs(1);
         // At step 3, the first message should be deliverable
-        let msg1 = bus.get_deliverable_message(current_time).unwrap();
+        let msg1 = bus.get_deliverable_message().unwrap();
         assert_eq!(msg1.content, MessageContent::Text("Hello".to_string()));
 
         current_time += time::Duration::from_secs(1);
         // At step 4, the second message should be deliverable
-        let msg2 = bus.get_deliverable_message(current_time).unwrap();
+        let msg2 = bus.get_deliverable_message().unwrap();
         assert_eq!(msg2.content, MessageContent::Text("Hi".to_string()));
 
         current_time += time::Duration::from_secs(1);
         // At step 4, the third message should also be deliverable
-        let msg3 = bus.get_deliverable_message(current_time).unwrap();
+        let msg3 = bus.get_deliverable_message().unwrap();
         assert_eq!(msg3.content, MessageContent::Text("Hi, again".to_string()));
 
         current_time += time::Duration::from_secs(1);
         // No more messages should be deliverable
-        assert!(bus.get_deliverable_message(current_time).is_none());
+        assert!(bus.get_deliverable_message().is_none());
     }
 }

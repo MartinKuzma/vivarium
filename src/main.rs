@@ -14,7 +14,7 @@ fn main() ->  Result<(), String>  {
     let agent_script = String::from(r#"
         function update()
             print("Agent updating: " .. entity.id)
-            entity.send_msg(1, "Greeting", "Hello from Agent 1")
+            entity.send_msg(2, "Greeting", "Hello from Agent 1")
         end
 
         function on_message(msg)
@@ -22,13 +22,25 @@ fn main() ->  Result<(), String>  {
         end
     "#);
 
+    let agent_script2 = String::from(r#"
+        function update()
+            print("Agent updating: " .. entity.id)
+        end
+
+        function on_message(msg)
+            print("Agent 2 received message: " .. msg.content)
+            entity.send_msg(1, "Greeting", "I received your message: " .. msg.content)
+        end
+    "#);
+
     world.create_entity(1, "Agent_1", agent_script)
         .map_err(|e| format!("Failed to create entity: {}", e))?;
 
+    world.create_entity(2, "Agent_2", agent_script2)
+        .map_err(|e| format!("Failed to create entity: {}", e))?;
+
     for _step in 0..5 {
-        world.update_entities()?;
-        world.process_commands();
-        world.update_simulation_time(time::Duration::from_secs(1));
+        world.update(time::Duration::from_secs(1))?;
     }
 
 

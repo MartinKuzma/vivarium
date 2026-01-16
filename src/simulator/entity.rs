@@ -1,4 +1,4 @@
-use crate::simulator::messaging::Message;
+use crate::simulator::messaging::{Message, MessageContent};
 use crate::simulator::world::WorldState;
 use mlua::prelude::*;
 use std::cell::RefCell;
@@ -22,9 +22,10 @@ impl Entity {
         id: u32,
         name: &str,
         script: String,
+        msg_bus: Rc<RefCell<crate::simulator::messaging::MessageBus>>,
         world_state: Rc<RefCell<WorldState>>,
     ) -> Result<Self, mlua::Error> {
-        let lua_handler = Self::init_lua(id, script, world_state)?;
+        let lua_handler = Self::init_lua(id, script, msg_bus.clone(), world_state)?;
 
         Ok(Entity {
             id,
@@ -40,6 +41,7 @@ impl Entity {
     fn init_lua(
         id: u32,
         script: String,
+        msg_bus: Rc<RefCell<crate::simulator::messaging::MessageBus>>,
         world_state: Rc<RefCell<WorldState>>,
     ) -> LuaResult<LuaScriptManager> {
         let lua = Lua::new();
@@ -47,16 +49,16 @@ impl Entity {
         entity_lib.set("id", id)?;
 
         // Function to send message to another entity
+        let msg_bus_clone = msg_bus.clone();
         entity_lib.set(
             "send_msg",
             lua.create_function(move |_lua, (receiver_id, kind, content)| {
-                world_state.borrow().schedule_msg(
-                    receiver_id,
+                msg_bus_clone.borrow_mut().schedule_message(
+                    crate::simulator::messaging::MessageReceiver::Entity { id: receiver_id },
                     kind,
-                    content,
+                    MessageContent::Text(content),
                     time::Duration::from_secs(1),
                 );
-
                 Ok(())
             })?,
         )?;
