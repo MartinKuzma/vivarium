@@ -9,11 +9,11 @@ mod simulator;
 use simulator::World;
 
 fn main() ->  Result<(), String>  {
-    let world = Rc::new(RefCell::new(simulator::World::new()));
+    let mut world = simulator::World::new();
 
     let agent_script = String::from(r#"
         function update()
-            print("Agent updating...")
+            print("Agent updating: " .. entity.id)
             entity.send_msg(1, "Greeting", "Hello from Agent 1")
         end
 
@@ -22,14 +22,14 @@ fn main() ->  Result<(), String>  {
         end
     "#);
 
-    let entity = simulator::Entity::new(1, "Agent_1", agent_script, world.clone())
+    world.create_entity(1, "Agent_1", agent_script)
         .map_err(|e| format!("Failed to create entity: {}", e))?;
 
-    world.borrow_mut().add_entity(entity);
-
-    world.borrow().update_entities()?;
-    world.borrow_mut().process_commands();
-    world.borrow_mut().update_simulation_time(time::Duration::from_secs(1));
+    for _step in 0..5 {
+        world.update_entities()?;
+        world.process_commands();
+        world.update_simulation_time(time::Duration::from_secs(1));
+    }
 
 
     

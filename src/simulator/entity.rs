@@ -1,9 +1,9 @@
+use crate::simulator::messaging::Message;
+use crate::simulator::world::WorldState;
 use mlua::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time;
-
-use crate::simulator::messaging::Message;
 
 struct LuaScriptManager {
     lua_vm: mlua::Lua,
@@ -14,14 +14,19 @@ struct LuaScriptManager {
 pub struct Entity {
     id: u32,
     name: String,
-    lua_script_manager : LuaScriptManager,
+    lua_script_manager: LuaScriptManager,
 }
 
 impl Entity {
-    pub fn new(id: u32, name: &str, script: String, world: Rc<RefCell<crate::simulator::world::World>>) -> Result<Self, mlua::Error> {
-        let lua_handler = Self::init_lua(id, script, world)?;
+    pub fn new(
+        id: u32,
+        name: &str,
+        script: String,
+        world_state: Rc<RefCell<WorldState>>,
+    ) -> Result<Self, mlua::Error> {
+        let lua_handler = Self::init_lua(id, script, world_state)?;
 
-         Ok(Entity {
+        Ok(Entity {
             id,
             name: name.to_string(),
             lua_script_manager: lua_handler,
@@ -32,23 +37,29 @@ impl Entity {
         self.id
     }
 
-    fn init_lua(id: u32, script: String, world: Rc<RefCell<crate::simulator::world::World>>) -> LuaResult<LuaScriptManager> {
+    fn init_lua(
+        id: u32,
+        script: String,
+        world_state: Rc<RefCell<WorldState>>,
+    ) -> LuaResult<LuaScriptManager> {
         let lua = Lua::new();
         let entity_lib = lua.create_table().unwrap();
         entity_lib.set("id", id)?;
 
         // Function to send message to another entity
-        let world_clone = world.clone();
-        entity_lib.set("send_msg", lua.create_function(move |_lua, (receiver_id, kind, content)| {
-            world_clone.borrow().schedule_msg(
-                receiver_id,
-                kind,
-                content,
-                time::Duration::from_secs(1),
-            );
+        entity_lib.set(
+            "send_msg",
+            lua.create_function(move |_lua, (receiver_id, kind, content)| {
+                world_state.borrow().schedule_msg(
+                    receiver_id,
+                    kind,
+                    content,
+                    time::Duration::from_secs(1),
+                );
 
-            Ok(())
-        })?)?;
+                Ok(())
+            })?,
+        )?;
 
         //TODO: broadcast message function
 
@@ -57,8 +68,8 @@ impl Entity {
         // Script needs to have update and on_message functions
         lua.load(script).exec()?;
 
-        let update_function : LuaFunction = lua.globals().get("update")?;
-        let on_message_function : LuaFunction = lua.globals().get("on_message")?;
+        let update_function: LuaFunction = lua.globals().get("update")?;
+        let on_message_function: LuaFunction = lua.globals().get("on_message")?;
 
         let update_function_reg = lua.create_registry_value(update_function)?;
         let on_message_function_reg = lua.create_registry_value(on_message_function)?;
@@ -71,14 +82,21 @@ impl Entity {
     }
 
     pub fn update(&mut self) -> Result<(), String> {
-        self.lua_script_manager.lua_vm
+        self.lua_script_manager
+            .lua_vm
             .registry_value::<LuaFunction>(&self.lua_script_manager.update_fn)
             .and_then(|func| func.call::<()>(()))
-            .or_else(|e| Err(format!("Error executing update function for entity {}: {}", self.id, e)))
+            .or_else(|e| {
+                Err(format!(
+                    "Error executing update function for entity {}: {}",
+                    self.id, e
+                ))
+            })
     }
 
-    pub fn receive_message(&mut self, message: &crate::simulator::messaging::Message, world: &crate::simulator::world::World) {
-        self.lua_script_manager.lua_vm
+    pub fn receive_message(&mut self, message: &crate::simulator::messaging::Message) {
+        self.lua_script_manager
+            .lua_vm
             .registry_value::<LuaFunction>(&self.lua_script_manager.on_message_function)
             .and_then(|func| {
                 let msg_table = self.lua_script_manager.lua_vm.create_table()?;
@@ -93,7 +111,10 @@ impl Entity {
                 func.call::<()>(msg_table)
             })
             .unwrap_or_else(|e| {
-                eprintln!("Error executing on_message function for entity {}: {}", self.id, e);
+                eprintln!(
+                    "Error executing on_message function for entity {}: {}",
+                    self.id, e
+                );
             });
     }
 }
