@@ -54,8 +54,8 @@ pub struct Message {
 
 #[derive(Debug, Clone)]
 pub enum MessageReceiver {
-    None,
-    Entity { id: u32 },                       // Entity ID and Component TypeId
+    System,
+    Entity { id: String },               // Entity ID and Component TypeId
     Radius2D { x: f32, y: f32, radius: f32 }, // Broadcast to all components of a given type within radius
 }
 
@@ -98,20 +98,20 @@ mod tests {
         bus.update_time(current_time);
 
         bus.schedule_message(
-            MessageReceiver::Entity { id: 1 },
+            MessageReceiver::Entity { id: "agent_1".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hello".to_string()),
             time::Duration::from_secs(3),
         );
         bus.schedule_message(
-            MessageReceiver::Entity { id: 2 },
+            MessageReceiver::Entity { id: "agent_2".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hi".to_string()),
             time::Duration::from_secs(3),
         );
         
         bus.schedule_message(
-            MessageReceiver::Entity { id: 2 },
+            MessageReceiver::Entity { id: "agent_2".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hi, again".to_string()),
             time::Duration::from_secs(2),

@@ -1,6 +1,9 @@
 use crate::simulator::messaging::{Message, MessageBus};
+use std::ops::DerefMut;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap, time};
+use crate::simulator::Entity;
+use crate::simulator::messaging::MessageReceiver;
 
 pub struct World {
     msg_bus: Rc<RefCell<MessageBus>>,
@@ -11,7 +14,7 @@ pub struct World {
 
 pub struct WorldState {
     simulation_time: time::Instant,
-    entities: HashMap<u32, RefCell<crate::simulator::entity::Entity>>,
+    entities: HashMap<String, RefCell<Entity>>,
 }
 
 impl World {
@@ -27,13 +30,11 @@ impl World {
 
     pub fn create_entity(
         &mut self,
-        id: u32,
-        name: &str,
+        id: String,
         script: String,
     ) -> Result<(), mlua::Error> {
         let entity = crate::simulator::entity::Entity::new(
-            id,
-            name,
+            id.clone(),
             script,
             self.msg_bus.clone(),
             self.state.clone(),
@@ -62,10 +63,13 @@ impl World {
         let messages = self.fetch_messages();
         for msg in messages {
             match msg.receiver {
-                crate::simulator::messaging::MessageReceiver::Entity { id, .. } => {
-                    if let Some(entity) = self.get_state_ref().entities.get(&id) {
-                        entity.borrow_mut().receive_message(&msg);
+                crate::simulator::messaging::MessageReceiver::Entity { ref id, .. } => {
+                    if let Some(entity) = self.get_state_ref().entities.get(id) {
+                        entity.borrow_mut().receive_message(msg);
                     }
+                }
+                crate::simulator::messaging::MessageReceiver::Radius2D { x, y, radius }  => {
+                    // TODO: Implement radius-based message delivery
                 }
                 _ => (),
             }
@@ -74,7 +78,6 @@ impl World {
         for entity in self.get_state_ref().entities.values() {
             entity.borrow_mut().update()?;
         }
-
 
         self.get_state_mut().simulation_time += delta;
         self.msg_bus.borrow_mut().update_time(self.get_state_ref().simulation_time);
@@ -91,21 +94,7 @@ impl World {
 }
 
 impl WorldState {
-    // pub fn schedule_msg(
-    //     &self,
-    //     entity_id: u32,
-    //     kind: String,
-    //     content: String,
-    //     delay: time::Duration,
-    // ) {
-    //     let current_time = self.simulation_time;
-
-    //     self.msg_bus.borrow_mut().schedule_message(
-    //         crate::simulator::messaging::MessageReceiver::Entity { id: entity_id },
-    //         kind,
-    //         crate::simulator::messaging::MessageContent::Text(content),
-    //         current_time,
-    //         delay,
-    //     );
-    // }
+    pub fn get_entities(&self) -> &HashMap<String, RefCell<Entity>> {
+        &self.entities
+    }
 }
