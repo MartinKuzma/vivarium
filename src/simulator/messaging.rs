@@ -62,7 +62,6 @@ pub enum MessageReceiver {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageContent {
     Text(String),
-    Data(Vec<u8>),
 }
 
 impl Eq for Message {}

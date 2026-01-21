@@ -3,12 +3,9 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap, time};
 use crate::simulator::Entity;
-use crate::simulator::messaging::MessageReceiver;
 
 pub struct World {
     msg_bus: Rc<RefCell<MessageBus>>,
-    // entities: HashMap<u32, RefCell<crate::simulator::entity::Entity>>,
-    // simulation_time: time::Instant,
     state: Rc<RefCell<WorldState>>,
 }
 
