@@ -1,4 +1,4 @@
-use std::{any::TypeId, collections::BinaryHeap, time};
+use std::{collections::BinaryHeap, time};
 
 pub struct MessageBus {
     current_time: time::Instant,
@@ -54,7 +54,6 @@ pub struct Message {
 
 #[derive(Debug, Clone)]
 pub enum MessageReceiver {
-    System,
     Entity { id: String },               // Entity ID and Component TypeId
     Radius2D { x: f32, y: f32, radius: f32 }, // Broadcast to all components of a given type within radius
 }

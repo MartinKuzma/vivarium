@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc, time};
-
 mod simulator;
+mod mcp;
+
+use crate::mcp::SimulationToolServer;
 
 fn main() ->  Result<(), String>  {
     let mut world = simulator::World::new();
@@ -10,8 +12,8 @@ fn main() ->  Result<(), String>  {
             for _, msg in ipairs(msgs) do
                 print("Agent received message: " .. msg.content)
             end
-            print("Agent updating: " .. entity.id)
-            entity.send_msg("Agent_2", "Greeting", "Hello from Agent 1", 5)
+            print("Agent updating: " .. self.id)
+            self.send_msg("Agent_2", "Greeting", "Hello from Agent 1", 5)
         end
     "#);
 
@@ -21,11 +23,11 @@ fn main() ->  Result<(), String>  {
                 print("Agent received message: " .. msg.content)
             end
 
-            for _, entity_id in ipairs(entity.list_entities()) do
+            for _, entity_id in ipairs(world.list_entities()) do
                 print("Known entity: " .. entity_id)
             end
-            print("Agent updating: " .. entity.id)
-            entity.send_msg("Agent_1", "Greeting", "Hello from Agent 2", 0)
+            print("Agent updating: " .. self.id)
+            self.send_msg("Agent_1", "Greeting", "Hello from Agent 2", 0)
 
         end
     "#);

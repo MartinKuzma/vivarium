@@ -29,12 +29,12 @@ impl LuaScriptController {
         world_state: Rc<RefCell<WorldState>>,
     ) -> LuaResult<LuaScriptController> {
         let lua = Lua::new();
-        let entity_lib = lua.create_table()?;
-        entity_lib.set("id", id.clone())?;
+        let self_lib = lua.create_table()?;
+        self_lib.set("id", id.clone())?;
 
         // Function to send message to another entity
         let msg_bus_clone = msg_bus.clone();
-        entity_lib.set(
+        self_lib.set(
             "send_msg",
             lua.create_function( move |_, (receiver_id, kind, content, delay)| {
                 msg_bus_clone.borrow_mut().schedule_message(
@@ -48,10 +48,11 @@ impl LuaScriptController {
             })?,
         )?;
 
-        entity_lib.set(
+        let msg_bus_clone = msg_bus.clone();
+        self_lib.set(
             "broadcast_msg",
             lua.create_function( move |_, (x, y, radius, kind, content)| {
-                msg_bus.borrow_mut().schedule_message(
+                msg_bus_clone.borrow_mut().schedule_message(
                     crate::simulator::messaging::MessageReceiver::Radius2D { x, y, radius },
                     kind,
                     MessageContent::Text(content),
@@ -61,8 +62,11 @@ impl LuaScriptController {
             })?,
         )?;
 
+        lua.globals().set("self", self_lib)?;
+
+        let world_lib = lua.create_table()?;
         // List entities
-        entity_lib.set(
+        world_lib.set(
             "list_entities",
             lua.create_function(move |lua_ctx, ()| {
                 let res_table = lua_ctx.create_table()?;
@@ -77,9 +81,8 @@ impl LuaScriptController {
                 Ok(res_table)
             })?,
         )?;
-
-        lua.globals().set("entity", entity_lib)?;
-
+        lua.globals().set("world", world_lib)?;
+        
         lua.load(script).exec()?;
 
         // Script needs to have update function
@@ -108,10 +111,8 @@ impl LuaScriptController {
                 }
             }
 
-            msg_table.set("kind", msg.kind.clone())
-            .map_err(|e| {e.to_string()})?;
-            msgs_table.push(msg_table)
-            .map_err(|e| {e.to_string()})?;
+            msg_table.set("kind", msg.kind.clone()).map_err(|e| {e.to_string()})?;
+            msgs_table.push(msg_table).map_err(|e| {e.to_string()})?;
         }
 
         let result = self.lua_vm

@@ -1,5 +1,4 @@
 use crate::simulator::messaging::{Message, MessageBus};
-use std::ops::DerefMut;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap, time};
 use crate::simulator::Entity;
@@ -81,7 +80,7 @@ impl World {
         Ok(())
     }
 
-    fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
+    pub fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
         self.state.borrow()
     }
 
@@ -89,6 +88,7 @@ impl World {
         self.state.borrow_mut()
     }
 }
+
 
 impl WorldState {
     pub fn get_entities(&self) -> &HashMap<String, RefCell<Entity>> {
