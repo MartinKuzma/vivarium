@@ -11,6 +11,8 @@ This MCP server provides tools to run agent-based simulations using Lua scripts.
 Each entity script MUST define TWO functions:
 
 1. **`update(current_time, msgs)`** - Processes messages and executes entity logic:
+current_time: current simulation time in seconds
+msgs: table of incoming messages (each message has `kind` and `content` fields)
 ```lua
 function update(current_time, msgs)
     -- Process incoming messages
