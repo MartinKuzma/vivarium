@@ -1,9 +1,12 @@
+use serde::de;
+
 use crate::simulator::messaging::{Message, MessageBus};
 use std::rc::Rc;
-use std::{cell::RefCell, collections::HashMap, time};
+use std::{cell::RefCell, collections::HashMap};
 use crate::simulator::Entity;
 use crate::simulator::metrics::Metrics;
 
+#[derive(Clone)]
 pub struct World {
     msg_bus: Rc<RefCell<MessageBus>>,
     state: Rc<RefCell<WorldState>>,
@@ -54,6 +57,10 @@ impl World {
         Ok(())
     }
 
+    pub fn remove_entity(&mut self, id: &String) -> Option<RefCell<Entity>> {
+        self.get_state_mut().entities.remove(id)
+    }
+
     pub fn fetch_messages(&self) -> Vec<Message> {
         let mut messages = Vec::new();
         while let Some(msg) = self
@@ -92,7 +99,6 @@ impl World {
                 crate::simulator::messaging::MessageReceiver::Radius2D { x, y, radius }  => {
                     // TODO: Implement radius-based message delivery
                 }
-                _ => (),
             }
         }
 

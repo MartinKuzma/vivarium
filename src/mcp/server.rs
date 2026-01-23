@@ -77,6 +77,18 @@ impl SimulationToolServer {
         }
     }
 
+    #[tool(description = "Remove an entity from the simulation by its ID.")]
+    fn remove_entity(
+        &self,
+        Parameters(id): Parameters<String>,
+    ) -> String {
+        let mut world = self.world.lock().unwrap();
+        match world.remove_entity(&id) {
+            Some(_) => return format!("Entity '{}' removed", id),
+            None => return format!("Entity '{}' not found", id),
+        }
+    }
+
     #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
     fn list_entities(&self) -> Result<CallToolResult, McpError> {
         let mut resp = ListEntitiesResponse {
