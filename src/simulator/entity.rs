@@ -29,4 +29,8 @@ impl Entity {
     pub fn receive_message(&mut self, message: Message) {
         self.lua_controller.push_message(message);
     }
+
+    pub fn get_lua_controller(&self) -> &LuaScriptController {
+        &self.lua_controller
+    }
 }

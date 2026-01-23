@@ -61,6 +61,7 @@ pub enum MessageReceiver {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageContent {
     Text(String),
+    LuaTable(String),
 }
 
 impl Eq for Message {}

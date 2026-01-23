@@ -4,8 +4,7 @@ use std::sync::Mutex;
 use rmcp::model::CallToolResult;
 use rmcp::model::Content;
 use rmcp::{
-    ServerHandler,
-    ErrorData as McpError,
+    ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
@@ -34,28 +33,42 @@ pub struct AdvanceSimulationRequest {
     pub num_steps: u32,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct Entity {
+    #[schemars(description = "The unique ID of the entity")]
+    pub id: String,
+    #[schemars(description = "The serialized state of the entity's Lua script")]
+    pub state: String,
+}
+
+#[derive(Debug, serde::Serialize,schemars::JsonSchema)]
 pub struct ListEntitiesResponse {
     #[schemars(description = "List of entity IDs in the simulation")]
-    pub entity_ids: Vec<String>,
+    pub entities: Vec<Entity>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct AdvanceSimulationResponse {
+    #[schemars(description = "List of delivered messages during the simulation steps")]
+    pub delivered_messages: Vec<String>,
 }
 
 #[tool_router]
 impl SimulationToolServer {
     pub fn new() -> Self {
         let tool_router = Self::tool_router();
-        SimulationToolServer { 
-            tool_router, 
+        SimulationToolServer {
+            tool_router,
             world: Arc::new(Mutex::new(crate::simulator::World::new())),
         }
     }
 
     //TODO: Reset simulation state
 
-    #[tool(description="Create a new entity with a Lua script. The script must define an 'update(msgs)' function. Each entity needs a unique ID.")]
+    #[tool(description = "Create a new entity with a Lua script. The script must define an 'update(msgs)' function. Each entity needs a unique ID.")]
     fn create_entity(
         &self,
-        Parameters( CreateEntityRequest { id, lua_script} ): Parameters<CreateEntityRequest>,        
+        Parameters(CreateEntityRequest { id, lua_script }): Parameters<CreateEntityRequest>,
     ) -> String {
         let mut world = self.world.lock().unwrap();
         match world.create_entity(id.clone(), lua_script.clone()) {
@@ -64,30 +77,69 @@ impl SimulationToolServer {
         }
     }
 
-    #[tool(description="List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
+    #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
     fn list_entities(&self) -> Result<CallToolResult, McpError> {
-        let world = self.world.lock().unwrap();
-        let resp = ListEntitiesResponse {
-            entity_ids: world.get_state_ref().get_entities().keys().cloned().collect()
+        let mut resp = ListEntitiesResponse {
+            entities: Vec::new(),
         };
+
+        let world = self.world.lock().unwrap();
+
+        for (id, entity) in world.get_state_ref().get_entities() {
+            match entity.borrow().get_lua_controller().get_serialized_state() {
+                Ok(state_str) => {
+                    resp.entities.push(Entity {
+                        id: id.clone(),
+                        state: state_str.clone(),
+                    });
+                }
+                Err(e) => {
+                    return Err(McpError::new(
+                        rmcp::model::ErrorCode::INTERNAL_ERROR,
+                        format!("Failed to serialize state for entity '{}': {}", id, e),
+                        None,
+                    ));
+                }
+            }
+        }
 
         Ok(CallToolResult::success(vec![Content::json(&resp).unwrap()]))
     }
 
-    #[tool(description="Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
+    #[tool(description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
     fn run_simulation_steps(
         &self,
-        Parameters(AdvanceSimulationRequest { step_duration, num_steps }): Parameters<AdvanceSimulationRequest>,
-    ) -> String {
+        Parameters(AdvanceSimulationRequest {
+            step_duration,
+            num_steps,
+        }): Parameters<AdvanceSimulationRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        let mut delivered_messages: Vec<String> = Vec::new();
+
         let mut world = self.world.lock().unwrap();
         for _ in 0..num_steps {
             match world.update(std::time::Duration::from_secs(step_duration)) {
-                Ok(_) => (),
-                Err(e) => return format!("Error during simulation step: {}", e),
+                Ok(result) => {
+                    for msg in result.delivered_messages {
+                        delivered_messages.push(format!("{:?}", msg));
+                    }
+                }
+                Err(e) => {
+                    return Err(McpError::new(
+                        rmcp::model::ErrorCode::INTERNAL_ERROR,
+                        format!("Error during simulation step: {}", e),
+                        None,
+                    ));
+                }
             }
         }
 
-        format!("Simulation advanced by {} steps of {} seconds each.", num_steps, step_duration)
+        Ok(CallToolResult::success(vec![
+            Content::json(&AdvanceSimulationResponse {
+                delivered_messages,
+            })
+            .unwrap(),
+        ]))
     }
 }
 
@@ -96,7 +148,7 @@ unsafe impl Sync for SimulationToolServer {}
 
 #[tool_handler]
 impl ServerHandler for SimulationToolServer {
-        fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(SERVER_INSTRUCTIONS.into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

@@ -13,6 +13,10 @@ pub struct WorldState {
     entities: HashMap<String, RefCell<Entity>>,
 }
 
+pub struct WorldUpdateResult {
+    pub delivered_messages: Vec<Message>,
+}
+
 impl World {
     pub fn new() -> Self {
         World {
@@ -55,9 +59,16 @@ impl World {
         messages
     }
 
-    pub fn update(&mut self, delta: time::Duration) -> Result<(), String> {
+    pub fn update(&mut self, delta: time::Duration) -> Result<WorldUpdateResult, String> {
+        let mut updateResult = WorldUpdateResult {
+            delivered_messages: Vec::new(),
+        };
+
         let messages = self.fetch_messages();
         for msg in messages {
+            // Log delivered message
+            updateResult.delivered_messages.push(msg.clone());
+
             match msg.receiver {
                 crate::simulator::messaging::MessageReceiver::Entity { ref id, .. } => {
                     if let Some(entity) = self.get_state_ref().entities.get(id) {
@@ -77,7 +88,7 @@ impl World {
 
         self.get_state_mut().simulation_time += delta;
         self.msg_bus.borrow_mut().update_time(self.get_state_ref().simulation_time);
-        Ok(())
+        Ok(updateResult)
     }
 
     pub fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
