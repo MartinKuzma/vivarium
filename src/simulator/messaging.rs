@@ -19,12 +19,14 @@ impl MessageBus {
 
     pub fn schedule_message(
         &mut self,
+        sender: &String,
         receiver: MessageReceiver,
         kind: String,
         content: MessageContent,
         delay: time::Duration,
     ) {
         let message = Message {
+            sender: sender.clone(),
             receiver,
             content,
             kind,
@@ -46,6 +48,7 @@ impl MessageBus {
 
 #[derive(Debug, Clone)]
 pub struct Message {
+    pub sender: String,
     pub receiver: MessageReceiver,
     pub content: MessageContent,
     pub kind: String, // Kind of message (e.g., "HealthStatus", "TradeRequest", etc.)
@@ -96,13 +99,17 @@ mod tests {
 
         bus.update_time(current_time);
 
+        let sender = "agent".to_string();
+
         bus.schedule_message(
+            &sender,
             MessageReceiver::Entity { id: "agent_1".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hello".to_string()),
             time::Duration::from_secs(3),
         );
         bus.schedule_message(
+            &sender,
             MessageReceiver::Entity { id: "agent_2".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hi".to_string()),
@@ -110,6 +117,7 @@ mod tests {
         );
         
         bus.schedule_message(
+            &sender,
             MessageReceiver::Entity { id: "agent_2".to_string() },
             String::from("Greeting"),
             MessageContent::Text("Hi, again".to_string()),

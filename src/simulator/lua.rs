@@ -86,6 +86,7 @@ impl LuaScriptController {
 
         // Function to send message to another entity
         let msg_bus_clone = msg_bus.clone();
+        let id_clone = id.clone();
         self_lib.set(
             "send_msg",
             lua.create_function(
@@ -109,6 +110,7 @@ impl LuaScriptController {
                     };
 
                     msg_bus_clone.borrow_mut().schedule_message(
+                        &id_clone,
                         crate::simulator::messaging::MessageReceiver::Entity { id: receiver_id },
                         kind,
                         serialized,
@@ -120,11 +122,13 @@ impl LuaScriptController {
             )?,
         )?;
 
+        let id_clone = id.clone();
         let msg_bus_clone = msg_bus.clone();
         self_lib.set(
             "broadcast_msg",
             lua.create_function(move |_, (x, y, radius, kind, content)| {
                 msg_bus_clone.borrow_mut().schedule_message(
+                    &id_clone,
                     crate::simulator::messaging::MessageReceiver::Radius2D { x, y, radius },
                     kind,
                     MessageContent::Text(content),
