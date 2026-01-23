@@ -42,7 +42,6 @@ end
   - content can be a string OR a Lua table
   - delay is in seconds
 - `world.list_entities()` - get list of all entity IDs
-- `world.get_time()` - get current simulation time in seconds
 - `world.record_metric(name, value)` - record a custom metric
     - name: metric name (string)
     - value: metric value (number)

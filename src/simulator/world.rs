@@ -68,7 +68,7 @@ impl World {
     }
 
     pub fn update(&mut self, delta: u64) -> Result<WorldUpdateResult, String> {
-        let mut updateResult = WorldUpdateResult {
+        let mut update_result = WorldUpdateResult {
             delivered_messages: Vec::new(),
         };
 
@@ -81,7 +81,7 @@ impl World {
         let messages = self.fetch_messages();
         for msg in messages {
             // Log delivered message
-            updateResult.delivered_messages.push(msg.clone());
+            update_result.delivered_messages.push(msg.clone());
 
             match msg.receiver {
                 crate::simulator::messaging::MessageReceiver::Entity { ref id, .. } => {
@@ -101,7 +101,7 @@ impl World {
         }
 
         
-        Ok(updateResult)
+        Ok(update_result)
     }
 
     pub fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
