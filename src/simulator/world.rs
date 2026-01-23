@@ -105,4 +105,8 @@ impl WorldState {
     pub fn get_entities(&self) -> &HashMap<String, RefCell<Entity>> {
         &self.entities
     }
+
+    pub fn get_simulation_time(&self) -> time::Duration {
+        self.simulation_time.elapsed()
+    }
 }

@@ -137,12 +137,14 @@ impl LuaScriptController {
         lua.globals().set("self", self_lib)?;
 
         let world_lib = lua.create_table()?;
+
         // List entities
+        let world_state_clone = world_state.clone();
         world_lib.set(
             "list_entities",
             lua.create_function(move |lua_ctx, ()| {
                 let res_table = lua_ctx.create_table()?;
-                world_state
+                world_state_clone
                     .borrow()
                     .get_entities()
                     .keys()
@@ -153,6 +155,17 @@ impl LuaScriptController {
                 Ok(res_table)
             })?,
         )?;
+
+        // Get current simulation time
+        let world_state_clone = world_state.clone();
+        world_lib.set(
+            "get_time",
+            lua.create_function(move |_, ()| {
+                let sim_time = world_state_clone.borrow().get_simulation_time();
+                Ok(sim_time.as_secs())
+            })?,
+        )?;
+
         lua.globals().set("world", world_lib)?;
 
         lua.load(script).exec()?;

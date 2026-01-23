@@ -33,14 +33,6 @@ function get_state()
 end
 ```
 
-Each entity can maintain its own state using a global `state` table. Only the `state` table will be exposed to the server for inspection. Any relevant state variables should be stored here:
-```lua
-state = {
-    counter = 0,
-    position = {x = 0, y = 0}
-}
-```
-
 ## Available Lua API:
 - `self.id` - entity's unique identifier
 - `self.send_msg(target_id, msg_type, content, delay)` 
@@ -49,6 +41,7 @@ state = {
   - content can be a string OR a Lua table
   - delay is in seconds
 - `world.list_entities()` - get list of all entity IDs
+- `world.get_time()` - get current simulation time in seconds
 
 ## Message Content Types:
 1. **String messages**: `self.send_msg("agent2", "Greeting", "Hello", 0)`
