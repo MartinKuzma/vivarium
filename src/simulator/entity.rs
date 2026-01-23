@@ -14,16 +14,17 @@ impl Entity {
         script: String,
         msg_bus: Rc<RefCell<crate::simulator::messaging::MessageBus>>,
         world_state: Rc<RefCell<WorldState>>,
+        metrics: Rc<RefCell<crate::simulator::metrics::Metrics>>,
     ) -> Result<Self, mlua::Error> {
-        let lua_controller = LuaScriptController::new(id.clone(), script, msg_bus.clone(), world_state)?;
+        let lua_controller = LuaScriptController::new(id.clone(), script, msg_bus.clone(), world_state, metrics)?;
 
         Ok(Entity {
             lua_controller,
         })
     }
 
-    pub fn update(&mut self) -> Result<(), String> {
-        self.lua_controller.update()
+    pub fn update(&mut self, current_time: u64) -> Result<(), String> {
+        self.lua_controller.update(current_time)
     }
 
     pub fn receive_message(&mut self, message: Message) {

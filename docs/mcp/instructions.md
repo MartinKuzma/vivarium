@@ -1,17 +1,18 @@
 # Vivarium Agent Simulation Server
-This MCP server provides tools to create and run agent-based simulations using Lua scripts.
+This MCP server provides tools to run agent-based simulations using Lua scripts. Agents can send and receive messages, maintain state, and interact within the simulation environment. Simulation time is managed in discrete steps. Simulation can be reset to its initial state.
 
 ## Usage Flow
-1. **Create entities** using `create_entity` - each entity needs a unique ID and Lua script
-2. **Run simulation** using `run_simulation_steps` to advance the simulation
-3. **Check state** using `list_entities` to see all entities in the simulation
+1. **Restart simulation** using `reset_simulation` to clear previous state
+2. **Create entities** using `create_entity` - each entity needs a unique ID and Lua script
+3. **Run simulation** using `run_simulation_steps` to advance the simulation
+4. **Check state** using `list_entities` to see all entities in the simulation
 
 ## Lua Script Requirements
 Each entity script MUST define TWO functions:
 
-1. **`update(msgs)`** - Processes messages and executes entity logic:
+1. **`update(current_time, msgs)`** - Processes messages and executes entity logic:
 ```lua
-function update(msgs)
+function update(current_time, msgs)
     -- Process incoming messages
     for _, msg in ipairs(msgs) do
         print("Received: " .. msg.content)
@@ -42,6 +43,9 @@ end
   - delay is in seconds
 - `world.list_entities()` - get list of all entity IDs
 - `world.get_time()` - get current simulation time in seconds
+- `world.record_metric(name, value)` - record a custom metric
+    - name: metric name (string)
+    - value: metric value (number)
 
 ## Message Content Types:
 1. **String messages**: `self.send_msg("agent2", "Greeting", "Hello", 0)`
@@ -59,7 +63,7 @@ pos_x = 10
 pos_y = 20
 velocity = 2.5
 
-function update(msgs)
+function update(current_time, msgs)
     for _, msg in ipairs(msgs) do
         if msg.kind == "status_report" then
             print("Agent A received status")
@@ -91,7 +95,7 @@ health = 100
 pos_x = 15
 pos_y = 25
 
-function update(msgs)
+function update(current_time, msgs)
     for _, msg in ipairs(msgs) do
         if msg.kind == "position_update" then
             print("Agent B received position")

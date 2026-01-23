@@ -2,14 +2,17 @@ use crate::simulator::messaging::{Message, MessageBus};
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap, time};
 use crate::simulator::Entity;
+use crate::simulator::metrics::Metrics;
 
 pub struct World {
     msg_bus: Rc<RefCell<MessageBus>>,
     state: Rc<RefCell<WorldState>>,
+    metrics: Rc<RefCell<Metrics>>,
+    simulation_time: u64, //TODO: Replace with some shared clock
 }
 
 pub struct WorldState {
-    simulation_time: time::Instant,
+    simulation_time: u64,
     entities: HashMap<String, RefCell<Entity>>,
 }
 
@@ -19,12 +22,16 @@ pub struct WorldUpdateResult {
 
 impl World {
     pub fn new() -> Self {
+        let start_time = 0;
+
         World {
+            simulation_time: 0,
             msg_bus: Rc::new(RefCell::new(MessageBus::new())),
             state: Rc::new(RefCell::new(WorldState {
                 entities: HashMap::new(),
-                simulation_time: time::Instant::now(), // Initialize to current time
+                simulation_time: 0,
             })),
+            metrics: Rc::new(RefCell::new(Metrics::new(start_time))),
         }
     }
 
@@ -38,6 +45,7 @@ impl World {
             script,
             self.msg_bus.clone(),
             self.state.clone(),
+            self.metrics.clone(),
         )?;
 
         self.get_state_mut()
@@ -59,10 +67,16 @@ impl World {
         messages
     }
 
-    pub fn update(&mut self, delta: time::Duration) -> Result<WorldUpdateResult, String> {
+    pub fn update(&mut self, delta: u64) -> Result<WorldUpdateResult, String> {
         let mut updateResult = WorldUpdateResult {
             delivered_messages: Vec::new(),
         };
+
+        // Update simulation time
+        self.simulation_time += delta;
+        self.msg_bus.borrow_mut().update_time(self.simulation_time);
+        self.metrics.borrow_mut().update_time(self.simulation_time);
+        self.state.borrow_mut().update_time(self.simulation_time);
 
         let messages = self.fetch_messages();
         for msg in messages {
@@ -83,11 +97,10 @@ impl World {
         }
 
         for entity in self.get_state_ref().entities.values() {
-            entity.borrow_mut().update()?;
+            entity.borrow_mut().update(self.simulation_time)?;
         }
 
-        self.get_state_mut().simulation_time += delta;
-        self.msg_bus.borrow_mut().update_time(self.get_state_ref().simulation_time);
+        
         Ok(updateResult)
     }
 
@@ -98,6 +111,10 @@ impl World {
     fn get_state_mut(&self) -> std::cell::RefMut<'_, WorldState> {
         self.state.borrow_mut()
     }
+
+    pub fn get_metrics_ref(&self) -> std::cell::Ref<'_, Metrics> {
+        self.metrics.borrow()
+    }
 }
 
 
@@ -106,7 +123,7 @@ impl WorldState {
         &self.entities
     }
 
-    pub fn get_simulation_time(&self) -> time::Duration {
-        self.simulation_time.elapsed()
+    pub fn update_time(&mut self, new_time: u64) {
+        self.simulation_time = new_time;
     }
 }

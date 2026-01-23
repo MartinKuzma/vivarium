@@ -118,7 +118,7 @@ impl SimulationToolServer {
 
         let mut world = self.world.lock().unwrap();
         for _ in 0..num_steps {
-            match world.update(std::time::Duration::from_secs(step_duration)) {
+            match world.update(step_duration) {
                 Ok(result) => {
                     for msg in result.delivered_messages {
                         delivered_messages.push(format!("{:?}", msg));
@@ -140,6 +140,48 @@ impl SimulationToolServer {
             })
             .unwrap(),
         ]))
+    }
+
+    #[tool(description = "Retrieve statistics for a specific recorded metric.")]
+    fn get_metric_stats(&self,
+        Parameters(name): Parameters<String>,
+    ) -> Result<CallToolResult, McpError> {
+        let world = self.world.lock().unwrap();
+        let metrics = world.get_metrics_ref();
+
+        match metrics.get_metric_stats(name.as_str()) {
+            Some(stats) => {
+                return Ok(CallToolResult::success(vec![
+                    Content::json(&stats)
+                    .unwrap(),
+                ]));
+            },
+            None => {
+                return Err(McpError::new(
+                    rmcp::model::ErrorCode::INVALID_PARAMS,
+                    format!("Error retrieving metric '{}'", name),
+                    None,
+                ));
+            }
+        }
+    }
+
+    #[tool(description = "Retrieve all recorded metrics and their values over time.")]
+    pub fn get_all_metrics(&self)  -> Result<CallToolResult, McpError> {
+        let world = self.world.lock().unwrap();
+        let metrics = world.get_metrics_ref();
+        let all_metrics = metrics.get_all_metrics();
+
+        Ok(CallToolResult::success(vec![
+            Content::json(&all_metrics)
+            .unwrap(),
+        ]))
+    }
+
+    #[tool(description = "Reset the simulation to its initial state, removing all entities and clearing all metrics.")]
+    pub fn reset_simulation(&self) {
+        let mut world = self.world.lock().unwrap();
+        *world = crate::simulator::World::new();
     }
 }
 
