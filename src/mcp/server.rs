@@ -11,6 +11,8 @@ use rmcp::{
     schemars, tool, tool_handler, tool_router,
 };
 
+const SERVER_INSTRUCTIONS: &str = include_str!("../../docs/mcp/instructions.md");
+
 pub struct SimulationToolServer {
     tool_router: ToolRouter<Self>,
     world: Arc<Mutex<crate::simulator::World>>,
@@ -41,7 +43,7 @@ pub struct ListEntitiesResponse {
 #[tool_router]
 impl SimulationToolServer {
     pub fn new() -> Self {
-        let tool_router = ToolRouter::new();
+        let tool_router = Self::tool_router();
         SimulationToolServer { 
             tool_router, 
             world: Arc::new(Mutex::new(crate::simulator::World::new())),
@@ -50,7 +52,7 @@ impl SimulationToolServer {
 
     //TODO: Reset simulation state
 
-    #[tool(description="Create a new entity with a Lua script")]
+    #[tool(description="Create a new entity with a Lua script. The script must define an 'update(msgs)' function. Each entity needs a unique ID.")]
     fn create_entity(
         &self,
         Parameters( CreateEntityRequest { id, lua_script} ): Parameters<CreateEntityRequest>,        
@@ -62,7 +64,7 @@ impl SimulationToolServer {
         }
     }
 
-    #[tool(description="List all entities in the simulation and their states")]
+    #[tool(description="List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
     fn list_entities(&self) -> Result<CallToolResult, McpError> {
         let world = self.world.lock().unwrap();
         let resp = ListEntitiesResponse {
@@ -72,7 +74,7 @@ impl SimulationToolServer {
         Ok(CallToolResult::success(vec![Content::json(&resp).unwrap()]))
     }
 
-    #[tool(description="Advance the simulation by a number of steps")]
+    #[tool(description="Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
     fn run_simulation_steps(
         &self,
         Parameters(AdvanceSimulationRequest { step_duration, num_steps }): Parameters<AdvanceSimulationRequest>,
@@ -96,7 +98,7 @@ unsafe impl Sync for SimulationToolServer {}
 impl ServerHandler for SimulationToolServer {
         fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("Agent simulation server".into()),
+            instructions: Some(SERVER_INSTRUCTIONS.into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
