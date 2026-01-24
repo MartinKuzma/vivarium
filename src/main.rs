@@ -1,5 +1,5 @@
 use std::{cell::RefCell, rc::Rc, time};
-mod simulator;
+mod core;
 mod mcp;
 use rmcp::{ServiceExt, transport::stdio};
 

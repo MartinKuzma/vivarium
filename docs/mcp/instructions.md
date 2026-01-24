@@ -8,7 +8,9 @@ This MCP server provides tools to run agent-based simulations using Lua scripts.
 4. **Check state** using `list_entities` to see all entities in the simulation
 
 ## Lua Script Requirements
-Each entity script MUST define TWO functions:
+Each entity script MUST define THREE functions:
+
+
 
 1. **`update(current_time, msgs)`** - Processes messages and executes entity logic:
 current_time: current simulation time in seconds
@@ -36,6 +38,15 @@ function get_state()
 end
 ```
 
+3. **`set_state(state)`** - Accepts a table to restore the entity's state (for snapshots):
+```lua
+function set_state(state)
+    health = state.health
+    position = state.position
+    active = state.active
+end
+```
+
 ## Available Lua API:
 - `self.id` - entity's unique identifier
 - `self.send_msg(target_id, msg_type, content, delay)` 
@@ -47,6 +58,7 @@ end
 - `world.record_metric(name, value)` - record a custom metric
     - name: metric name (string)
     - value: metric value (number)
+- `self.destroy(entity_id)` - destroy the entity with the given ID
 
 ## Message Content Types:
 1. **String messages**: `self.send_msg("agent2", "Greeting", "Hello", 0)`
@@ -88,6 +100,12 @@ function get_state()
         velocity = velocity
     }
 end
+
+function set_state(state)
+    pos_x = state.pos_x
+    pos_y = state.pos_y
+    velocity = state.velocity
+end
 ```
 
 Agent B (receives and responds with status):
@@ -118,6 +136,12 @@ function get_state()
         pos_x = pos_x,
         pos_y = pos_y
     }
+end
+
+function set_state(state)
+    health = state.health
+    pos_x = state.pos_x
+    pos_y = state.pos_y
 end
 ```
 

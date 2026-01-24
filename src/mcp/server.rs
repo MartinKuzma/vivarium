@@ -14,7 +14,7 @@ const SERVER_INSTRUCTIONS: &str = include_str!("../../docs/mcp/instructions.md")
 
 pub struct SimulationToolServer {
     tool_router: ToolRouter<Self>,
-    world: Arc<Mutex<crate::simulator::World>>,
+    world: Arc<Mutex<crate::core::World>>,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -59,11 +59,9 @@ impl SimulationToolServer {
         let tool_router = Self::tool_router();
         SimulationToolServer {
             tool_router,
-            world: Arc::new(Mutex::new(crate::simulator::World::new())),
+            world: Arc::new(Mutex::new(crate::core::World::new())),
         }
     }
-
-    //TODO: Reset simulation state
 
     #[tool(description = "Create a new entity with a Lua script. The script must define an 'update(msgs)' function. Each entity needs a unique ID.")]
     fn create_entity(
@@ -98,7 +96,7 @@ impl SimulationToolServer {
         let world = self.world.lock().unwrap();
 
         for (id, entity) in world.get_state_ref().get_entities() {
-            match entity.borrow().get_lua_controller().get_serialized_state() {
+            match entity.borrow().get_lua_controller().get_state() {
                 Ok(state_str) => {
                     resp.entities.push(Entity {
                         id: id.clone(),
@@ -193,7 +191,7 @@ impl SimulationToolServer {
     #[tool(description = "Reset the simulation to its initial state, removing all entities and clearing all metrics.")]
     pub fn reset_simulation(&self) {
         let mut world = self.world.lock().unwrap();
-        *world = crate::simulator::World::new();
+        *world = crate::core::World::new();
     }
 }
 

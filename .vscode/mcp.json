@@ -1,0 +1,10 @@
+{
+	"servers": {
+		"vivarium": {
+			"type": "stdio",
+			"command": "./target/debug/vivarium",
+			"args": []
+		}
+	},
+	"inputs": []
+}
