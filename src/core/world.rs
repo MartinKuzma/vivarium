@@ -120,6 +120,14 @@ impl World {
         }
     }
 
+    pub fn set_entity_state(&mut self, id: &String, state: &str) -> Result<(), String> {
+        if let Some(entity) = self.get_state_ref().entities.get(id) {
+            entity.borrow_mut().get_lua_controller_mut().set_state(state)
+        } else {
+            Err(format!("Entity with ID '{}' not found", id))
+        }
+    }
+
     fn update_simulation_time(&mut self, new_time: u64) {
         self.simulation_time = new_time;
         self.msg_bus.update_time(new_time);

@@ -33,4 +33,8 @@ impl Entity {
     pub fn get_lua_controller(&self) -> &LuaScriptController {
         &self.lua_controller
     }
+
+    pub fn get_lua_controller_mut(&mut self) -> &mut LuaScriptController {
+        &mut self.lua_controller
+    }
 }

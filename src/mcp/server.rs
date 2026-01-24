@@ -41,7 +41,7 @@ pub struct Entity {
     pub state: String,
 }
 
-#[derive(Debug, serde::Serialize,schemars::JsonSchema)]
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct ListEntitiesResponse {
     #[schemars(description = "List of entity IDs in the simulation")]
     pub entities: Vec<Entity>,
@@ -76,10 +76,7 @@ impl SimulationToolServer {
     }
 
     #[tool(description = "Remove an entity from the simulation by its ID.")]
-    fn remove_entity(
-        &self,
-        Parameters(id): Parameters<String>,
-    ) -> String {
+    fn remove_entity(&self, Parameters(id): Parameters<String>) -> String {
         let mut world = self.world.lock().unwrap();
         match world.remove_entity(&id) {
             Some(_) => return format!("Entity '{}' removed", id),
@@ -145,15 +142,13 @@ impl SimulationToolServer {
         }
 
         Ok(CallToolResult::success(vec![
-            Content::json(&AdvanceSimulationResponse {
-                delivered_messages,
-            })
-            .unwrap(),
+            Content::json(&AdvanceSimulationResponse { delivered_messages }).unwrap(),
         ]))
     }
 
     #[tool(description = "Retrieve statistics for a specific recorded metric.")]
-    fn get_metric_stats(&self,
+    fn get_metric_stats(
+        &self,
         Parameters(name): Parameters<String>,
     ) -> Result<CallToolResult, McpError> {
         let world = self.world.lock().unwrap();
@@ -162,10 +157,9 @@ impl SimulationToolServer {
         match metrics.get_metric_stats(name.as_str()) {
             Some(stats) => {
                 return Ok(CallToolResult::success(vec![
-                    Content::json(&stats)
-                    .unwrap(),
+                    Content::json(&stats).unwrap(),
                 ]));
-            },
+            }
             None => {
                 return Err(McpError::new(
                     rmcp::model::ErrorCode::INVALID_PARAMS,
@@ -177,21 +171,40 @@ impl SimulationToolServer {
     }
 
     #[tool(description = "Retrieve all recorded metrics and their values over time.")]
-    pub fn get_all_metrics(&self)  -> Result<CallToolResult, McpError> {
+    pub fn get_all_metrics(&self) -> Result<CallToolResult, McpError> {
         let world = self.world.lock().unwrap();
         let metrics = world.get_metrics_ref();
         let all_metrics = metrics.get_all_metrics();
 
         Ok(CallToolResult::success(vec![
-            Content::json(&all_metrics)
-            .unwrap(),
+            Content::json(&all_metrics).unwrap(),
         ]))
     }
 
-    #[tool(description = "Reset the simulation to its initial state, removing all entities and clearing all metrics.")]
+    #[tool(
+        description = "Reset the simulation to its initial state, removing all entities and clearing all metrics."
+    )]
     pub fn reset_simulation(&self) {
         let mut world = self.world.lock().unwrap();
         *world = crate::core::World::new();
+    }
+
+    #[tool(description = "Set the state of a specific entity by its ID. The state must be a serialized Lua table string compatible with the entity's Lua script.")]
+    pub fn set_entity_state(
+        &self,
+        Parameters((id, state)): Parameters<(String, String)>,
+    ) -> Result<(), McpError> {
+        let mut world = self.world.lock().unwrap();
+
+        world.set_entity_state(&id, &state).map_err(|e| {
+            McpError::new(
+                rmcp::model::ErrorCode::INVALID_PARAMS,
+                format!("Failed to set state for entity '{}': {}", id, e),
+                None,
+            )
+        })?;
+
+        Ok(())
     }
 }
 
