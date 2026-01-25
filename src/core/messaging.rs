@@ -41,9 +41,13 @@ impl MessageBus {
             _ => None,
         }
     }
+
+    pub fn get_messages_iter(&self) -> impl Iterator<Item = &Message> {
+        self.messages.iter()
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Message {
     pub sender: String,
     pub receiver: MessageReceiver,
@@ -52,7 +56,7 @@ pub struct Message {
     pub receive_step: u64, // Step at which the message should be received
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum MessageReceiver {
     Entity { id: String },               // Entity ID and Component TypeId
     Radius2D { x: f32, y: f32, radius: f32 }, // Broadcast to all components of a given type within radius

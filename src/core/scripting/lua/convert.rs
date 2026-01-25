@@ -1,5 +1,3 @@
-use std::convert;
-
 use mlua::prelude::{Lua, LuaTable, LuaValue, LuaError, LuaResult};
 use crate::core::messaging::{self, JSONObject};
 

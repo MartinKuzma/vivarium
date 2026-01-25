@@ -1,9 +1,11 @@
 use serde::de;
 
 use crate::core::Entity;
+use crate::core::errors::CoreError;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
 use std::rc::Rc;
+
 use std::{cell::RefCell, collections::HashMap};
 
 pub struct World {
@@ -35,16 +37,38 @@ impl World {
         }
     }
 
-    pub fn create_entity(&mut self, id: String, script: String) -> Result<(), mlua::Error> {
-        let entity = crate::core::entity::Entity::new(id.clone(), script, self.state.clone())?;
+    pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
+        let mut world = World::new();
+        world.simulation_time = snapshot.simulation_time;
+
+        for entity_snapshot in snapshot.entities {
+            world.create_entity(&entity_snapshot.id, entity_snapshot.script)?;
+            world.set_entity_state(&entity_snapshot.id, entity_snapshot.state)?;
+        }
+
+        for message in snapshot.messages {
+            world.msg_bus.schedule_message(
+                &message.sender,
+                message.receiver,
+                message.kind,
+                message.content,
+                message.receive_step,
+            );
+        }
+
+        Ok(world)
+    }
+
+    pub fn create_entity(&mut self, id: &str, script: String) -> Result<(), CoreError> {
+        let entity = Entity::new(id.to_string(), script, self.state.clone())?;
 
         self.get_state_mut()
             .entities
-            .insert(id, RefCell::new(entity));
+            .insert(id.to_string(), RefCell::new(entity));
         Ok(())
     }
 
-    pub fn remove_entity(&mut self, id: &String) -> Option<RefCell<Entity>> {
+    pub fn remove_entity(&mut self, id: &str) -> Option<RefCell<Entity>> {
         self.get_state_mut().entities.remove(id)
     }
 
@@ -57,7 +81,7 @@ impl World {
         messages
     }
 
-    pub fn update(&mut self, delta: u64) -> Result<WorldUpdateResult, String> {
+    pub fn update(&mut self, delta: u64) -> Result<WorldUpdateResult, CoreError> {
         let mut update_result = WorldUpdateResult::new();
 
         // Update simulation time
@@ -85,8 +109,14 @@ impl World {
                     kind,
                     content,
                     delay,
-                } => {                    
-                    self.msg_bus.schedule_message(&sender, receiver, kind, content, self.simulation_time + delay);
+                } => {
+                    self.msg_bus.schedule_message(
+                        &sender,
+                        receiver,
+                        kind,
+                        content,
+                        self.simulation_time + delay,
+                    );
                 }
                 crate::core::messaging::Command::RemoveEntity { id } => {
                     self.remove_entity(&id);
@@ -117,11 +147,11 @@ impl World {
         }
     }
 
-    pub fn set_entity_state(&mut self, id: &String, state: JSONObject) -> Result<(), String> {
+    pub fn set_entity_state(&mut self, id: &str, state: JSONObject) -> Result<(), CoreError> {
         if let Some(entity) = self.get_state_ref().entities.get(id) {
             entity.borrow_mut().get_lua_controller_mut().set_state(state)
         } else {
-            Err(format!("Entity with ID '{}' not found", id))
+            Err(CoreError::EntityNotFound { id: id.to_string() })
         }
     }
 
@@ -140,6 +170,37 @@ impl World {
 
     pub fn get_metrics_ref(&self) -> &Metrics {
         &self.metrics
+    }
+
+    pub fn create_snapshot(&self) -> Result<crate::core::snapshot::WorldSnapshot, CoreError> {
+        let mut entity_snapshots = Vec::new();
+
+        for (id, entity_cell) in &self.get_state_ref().entities {
+            let entity = entity_cell.borrow();
+            let lua_controller = entity.get_lua_controller();
+            let state = lua_controller.get_state()?;
+
+            let entity_snapshot = crate::core::snapshot::EntitySnapshot::new(
+                id.clone(),
+                lua_controller.get_script().clone(),
+                state,
+            );
+
+            entity_snapshots.push(entity_snapshot);
+        }
+
+        let mut messages = Vec::new();
+
+        for msg in self.msg_bus.get_messages_iter() {
+            messages.push(msg.clone());
+        }
+
+        Ok(crate::core::snapshot::WorldSnapshot::new(
+            self.simulation_time,
+            entity_snapshots,
+            messages,
+            String::new(),
+        ))
     }
 }
 

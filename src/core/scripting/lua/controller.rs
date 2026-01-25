@@ -4,6 +4,7 @@ use crate::core::messaging::JSONObject;
 use crate::core::messaging::Message;
 use crate::core::scripting::lua::convert::{convert_to_json, convert_to_lua_table};
 use crate::core::world::WorldState;
+use crate::core::errors::CoreError;
 
 use mlua::Lua;
 use mlua::prelude::*;
@@ -65,27 +66,27 @@ impl LuaScriptController {
     }
 
     // Set the internal state of the Lua script from a serialized Lua table string
-    pub fn set_state(&mut self, state: messaging::JSONObject) -> Result<(), String> {
+    pub fn set_state(&mut self, state: messaging::JSONObject) -> Result<(), CoreError> {
         let state_table = convert_to_lua_table(&self.lua_vm, &state)
-            .map_err(|e| format!("Error converting JSON to Lua table: {}", e))?;
+            .map_err(|e| CoreError::ScriptState { message: format!("Error converting JSON to Lua table: {}", e) })?;
 
         let result = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.set_state_fn)
             .and_then(|func| func.call::<()>(state_table));
 
-        result.map_err(|e| format!("Error executing set_state function: {}", e))
+        result.map_err(|e| CoreError::ScriptState { message: format!("Error executing set_state function: {}", e) })
     }
 
-    pub fn update(&mut self, simulation_time: u64) -> Result<Vec<Command>, String> {
-        let msgs_table = self.create_messages_table().map_err(|e| e.to_string())?;
+    pub fn update(&mut self, simulation_time: u64) -> Result<Vec<Command>, CoreError> {
+        let msgs_table = self.create_messages_table().map_err(|e| CoreError::ScriptExecution { message: format!("Error creating messages table: {}", e) })?;
 
         let result = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.update_fn)
             .and_then(|func| func.call::<()>((simulation_time, msgs_table)));
 
-        result.map_err(|e| format!("Error executing update function: {}", e))?;
+        result.map_err(|e| CoreError::ScriptExecution { message: format!("Error executing update function: {}", e) })?;
 
         Ok(std::mem::take(&mut *self.command_queue.borrow_mut()))
     }
@@ -106,19 +107,23 @@ impl LuaScriptController {
         Ok(msgs_table)
     }
 
-    pub fn get_state(&self) -> Result<JSONObject, String> {
+    pub fn get_state(&self) -> Result<JSONObject, CoreError> {
         let state = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.get_state_fn)
             .and_then(|func| func.call::<LuaTable>(()))
-            .map_err(|e| format!("Error calling get_state function: {}", e))?;
+            .map_err(|e| CoreError::ScriptState { message: format!("Error calling get_state function: {}", e) })?;
 
         return convert_to_json(&self.lua_vm, &state)
-            .map_err(|e| format!("Error serializing state table: {}", e));
+            .map_err(|e| CoreError::ScriptState { message: format!("Error serializing state table: {}", e) });
     }
 
     pub fn push_message(&mut self, msg: Message) {
         self.incoming_msgs.push(msg);
+    }
+
+    pub fn get_script(&self) -> &String {
+        &self.script
     }
 }
 

@@ -78,7 +78,7 @@ impl SimulationToolServer {
         Parameters(CreateEntityRequest { id, lua_script }): Parameters<CreateEntityRequest>,
     ) -> String {
         let mut world = self.world.lock().unwrap();
-        match world.create_entity(id.clone(), lua_script.clone()) {
+        match world.create_entity(&id, lua_script.clone()) {
             Ok(_) => return format!("Entity '{}' created with Lua script: {}", id, lua_script),
             Err(e) => return format!("Failed to create entity '{}': {}", id, e),
         }
