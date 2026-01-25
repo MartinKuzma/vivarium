@@ -1,18 +1,19 @@
 use std::collections::HashMap;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use crate::core::messaging::{JSONObject, Message};
-use crate::core::world::World;
 
-pub struct SnapshotManager {
-    snapshots: HashMap<String, WorldSnapshot>, // Map of snapshot name to WorldSnapshot
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WorldSnapshot {
     pub simulation_time: u64, // Simulation time at which the snapshot was taken
     pub entities: Vec<EntitySnapshot>, // Placeholder for entity snapshots
     pub messages: Vec<Message>,        // Placeholder for message snapshots
     pub description: String, // Holds a description of the snapshot set by the user
+    pub metrics : MetricsSnapshot,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MetricsSnapshot {
+    pub metrics: HashMap<String, Vec<(u64, f64)>>, // Metric name to list of (timestamp, value) pairs
 }
 
 impl WorldSnapshot {
@@ -21,17 +22,19 @@ impl WorldSnapshot {
         entities: Vec<EntitySnapshot>,
         messages: Vec<Message>,
         description: String,
+        metrics: MetricsSnapshot,
     ) -> Self {
         WorldSnapshot {
             simulation_time,
             entities,
             messages,
             description,
+            metrics,
         }
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct EntitySnapshot {
     pub id: String,
     pub script: String,
@@ -46,21 +49,5 @@ impl EntitySnapshot {
             script,
             state,
         }
-    }
-}
-
-impl SnapshotManager {
-    pub fn new() -> Self {
-        SnapshotManager {
-            snapshots: HashMap::new(),
-        }
-    }
-
-    pub fn take_snapshot(&mut self, world: &World) {
-        todo!("Implement snapshot taking");
-    }
-
-    pub fn restore_snapshot(&mut self, name: &str) -> World {
-        todo!("Implement snapshot restoration");
     }
 }

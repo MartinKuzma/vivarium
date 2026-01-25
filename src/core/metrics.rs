@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::core::snapshot::MetricsSnapshot;
 use rmcp::{
     schemars
 };
@@ -21,29 +22,36 @@ pub struct MetricStats {
     pub values_over_time: Vec<(u64, f64)>,
 }
 
+
 pub struct Metrics {
-    current_time: u64,
     metrics: HashMap<String, Vec<Metric>>,
 }
 
 impl Metrics {
-    pub fn new(start_time: u64) -> Self {
+    pub fn new() -> Self {
         Metrics {
-            current_time: start_time,
             metrics: HashMap::new(),
         }
     }
 
-    pub fn update_time(&mut self, new_time: u64) {
-        self.current_time = new_time;
+    pub fn new_from_snapshot(snapshot: MetricsSnapshot) -> Self {
+        let mut metrics = HashMap::new();
+        for (name, values) in snapshot.metrics {
+            let metric_values: Vec<Metric> = values.into_iter().map(|(timestamp, value)| Metric { timestamp, value }).collect();
+            metrics.insert(name, metric_values);
+        }
+
+        Metrics {
+            metrics,
+        }
     }
 
-    pub fn record_metric(&mut self, name : &str, value: f64) {
+    pub fn record_metric(&mut self, current_time: u64, name : &str, value: f64) {
         match self.metrics.get_mut(name) {
             Some(metric_list) => {
 
                 // Update existing metric for this timestamp
-                if metric_list.last().map_or(false, |m| m.timestamp == self.current_time) {
+                if metric_list.last().map_or(false, |m| m.timestamp == current_time) {
                    if let Some(last_metric) = metric_list.last_mut() {
                        last_metric.value += value;
                    }
@@ -52,13 +60,13 @@ impl Metrics {
 
                 metric_list.push(Metric {
                     value,
-                    timestamp: self.current_time,
+                    timestamp: current_time,
                 });
             },
             None => {
                 self.metrics.insert(name.to_string(), vec![Metric {
                     value,
-                    timestamp: self.current_time,
+                    timestamp: current_time,
                 }]);
             }
         }
@@ -95,6 +103,16 @@ impl Metrics {
             }
         }
         all_stats
+    }
+
+    pub fn get_metrics_snapshot(&self) -> MetricsSnapshot {
+        let mut snapshot = HashMap::new();
+        for (name, metrics) in &self.metrics {
+            let values: Vec<(u64, f64)> = metrics.iter().map(|m| (m.timestamp, m.value)).collect();
+            snapshot.insert(name.clone(), values);
+        }
+
+        MetricsSnapshot { metrics: snapshot}
     }
 }
 

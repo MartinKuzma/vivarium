@@ -35,13 +35,14 @@ impl MessageBus {
 
     // Retrieve one message scheduled for delivery at the current step
     // Returns None if no messages are deliverable at this step
-    pub fn get_deliverable_message(&mut self, current_time: u64) -> Option<Message> {
+    pub fn pop_deliverable_message(&mut self, current_time: u64) -> Option<Message> {
         match self.messages.peek() {
             Some(msg) if msg.receive_step <= current_time => Some(self.messages.pop().unwrap()),
             _ => None,
         }
     }
 
+    // Get an iterator over all messages (used for snapshotting)
     pub fn get_messages_iter(&self) -> impl Iterator<Item = &Message> {
         self.messages.iter()
     }
@@ -136,20 +137,20 @@ mod tests {
         );
 
         // At step 1, no messages should be deliverable
-        assert!(bus.get_deliverable_message(1).is_none());
+        assert!(bus.pop_deliverable_message(1).is_none());
 
         // At step 2, the message scheduled for step 2 should be deliverable
-        let msg1 = bus.get_deliverable_message(2).unwrap();
+        let msg1 = bus.pop_deliverable_message(2).unwrap();
         assert_eq!(msg1.receive_step, 2);
 
         // At step 3, the two messages scheduled for step 3 should be deliverable
-        let msg2 = bus.get_deliverable_message(3).unwrap();
+        let msg2 = bus.pop_deliverable_message(3).unwrap();
         assert_eq!(msg2.receive_step, 3);
 
-        let msg3 = bus.get_deliverable_message(3).unwrap();
+        let msg3 = bus.pop_deliverable_message(3).unwrap();
         assert_eq!(msg3.receive_step, 3);
 
         // No more messages should be deliverable
-        assert!(bus.get_deliverable_message(5).is_none());
+        assert!(bus.pop_deliverable_message(5).is_none());
     }
 }

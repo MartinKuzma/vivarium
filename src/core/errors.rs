@@ -8,8 +8,6 @@ pub enum CoreError {
     ScriptExecution{message: String},
     ScriptState{message: String},
 
-    MessageDelivery { message: String },
-
     SerializationError(String),
     DeserializationError(String),
     SnapshotError(String),
@@ -22,7 +20,6 @@ pub enum CoreError {
             CoreError::EntityCreation { id, message } => write!(f, "Failed to create entity '{}': {}", id, message),
             CoreError::ScriptExecution { message } => write!(f, "Script execution error: {}", message),
             CoreError::ScriptState { message } => write!(f, "Script state error: {}", message),
-            CoreError::MessageDelivery { message } => write!(f, "Message delivery error: {}", message),
             CoreError::SerializationError(message) => write!(f, "Serialization error: {}", message),
             CoreError::DeserializationError(message) => write!(f, "Deserialization error: {}", message),
             CoreError::SnapshotError(message) => write!(f, "Snapshot error: {}", message),

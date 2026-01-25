@@ -33,13 +33,14 @@ impl World {
             state: Rc::new(RefCell::new(WorldState {
                 entities: HashMap::new(),
             })),
-            metrics: Metrics::new(start_time),
+            metrics: Metrics::new(),
         }
     }
 
     pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
         let mut world = World::new();
         world.simulation_time = snapshot.simulation_time;
+        world.metrics = Metrics::new_from_snapshot(snapshot.metrics);
 
         for entity_snapshot in snapshot.entities {
             world.create_entity(&entity_snapshot.id, entity_snapshot.script)?;
@@ -74,7 +75,7 @@ impl World {
 
     pub fn fetch_messages(&mut self) -> Vec<Message> {
         let mut messages = Vec::new();
-        while let Some(msg) = self.msg_bus.get_deliverable_message(self.simulation_time) {
+        while let Some(msg) = self.msg_bus.pop_deliverable_message(self.simulation_time) {
             messages.push(msg);
         }
 
@@ -122,7 +123,7 @@ impl World {
                     self.remove_entity(&id);
                 }
                 crate::core::messaging::Command::RecordMetric { name, value } => {
-                    self.metrics.record_metric(&name, value);
+                    self.metrics.record_metric(self.simulation_time, &name, value);
                 }
             }
         }
@@ -157,7 +158,6 @@ impl World {
 
     fn update_simulation_time(&mut self, new_time: u64) {
         self.simulation_time = new_time;
-        self.metrics.update_time(new_time);
     }
 
     pub fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
@@ -195,11 +195,14 @@ impl World {
             messages.push(msg.clone());
         }
 
+        let metrics_snapshot = self.metrics.get_metrics_snapshot();
+
         Ok(crate::core::snapshot::WorldSnapshot::new(
             self.simulation_time,
             entity_snapshots,
             messages,
             String::new(),
+            metrics_snapshot,
         ))
     }
 }
