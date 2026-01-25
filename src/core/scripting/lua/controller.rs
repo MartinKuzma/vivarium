@@ -1,6 +1,8 @@
+use crate::core::messaging;
 use crate::core::messaging::Command;
-use crate::core::messaging::MessageBus;
-use crate::core::messaging::{Message, MessageContent};
+use crate::core::messaging::JSONObject;
+use crate::core::messaging::Message;
+use crate::core::scripting::lua::convert::{convert_to_json, convert_to_lua_table};
 use crate::core::world::WorldState;
 
 use mlua::Lua;
@@ -63,17 +65,14 @@ impl LuaScriptController {
     }
 
     // Set the internal state of the Lua script from a serialized Lua table string
-    pub fn set_state(&mut self, state_table: &str) -> Result<(), String> {
-        let value = self
-            .lua_vm
-            .load(state_table)
-            .eval::<LuaTable>()
-            .map_err(|e| format!("Error loading state table: {}", e))?;
+    pub fn set_state(&mut self, state: messaging::JSONObject) -> Result<(), String> {
+        let state_table = convert_to_lua_table(&self.lua_vm, &state)
+            .map_err(|e| format!("Error converting JSON to Lua table: {}", e))?;
 
         let result = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.set_state_fn)
-            .and_then(|func| func.call::<()>(value));
+            .and_then(|func| func.call::<()>(state_table));
 
         result.map_err(|e| format!("Error executing set_state function: {}", e))
     }
@@ -97,14 +96,7 @@ impl LuaScriptController {
         for msg in &self.incoming_msgs {
             let msg_table = self.lua_vm.create_table()?;
 
-            match &msg.content {
-                crate::core::messaging::MessageContent::LuaTable(lua_code) => {
-                    // Deserialize Lua table with zero parsing overhead
-                    let value = self.lua_vm.load(lua_code).eval::<LuaValue>()?;
-                    msg_table.set("content", value)?;
-                }
-            }
-
+            msg_table.set("content", convert_to_lua_table(&self.lua_vm, &msg.content)?)?;
             msg_table.set("kind", msg.kind.clone())?;
             msgs_table.push(msg_table)?;
         }
@@ -114,71 +106,20 @@ impl LuaScriptController {
         Ok(msgs_table)
     }
 
-    pub fn get_state(&self) -> Result<String, String> {
+    pub fn get_state(&self) -> Result<JSONObject, String> {
         let state = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.get_state_fn)
             .and_then(|func| func.call::<LuaTable>(()))
             .map_err(|e| format!("Error calling get_state function: {}", e))?;
 
-        return serialize_lua_table(&self.lua_vm, &state)
+        return convert_to_json(&self.lua_vm, &state)
             .map_err(|e| format!("Error serializing state table: {}", e));
     }
 
     pub fn push_message(&mut self, msg: Message) {
         self.incoming_msgs.push(msg);
     }
-}
-
-// Serialize a Lua table into a Lua code string for efficient transfer between VMs
-fn serialize_lua_table(lua: &Lua, table: &LuaTable) -> LuaResult<String> {
-    let mut result = String::from("{");
-    let mut first = true;
-
-    for pair in table.pairs::<LuaValue, LuaValue>() {
-        let (key, value) = pair?;
-
-        if !first {
-            result.push(',');
-        }
-        first = false;
-
-        match key {
-            LuaValue::String(s) => {
-                result.push_str(&format!("[\"{}\"]", s.to_str()?));
-            }
-            LuaValue::Integer(i) => {
-                result.push_str(&format!("[{}]", i));
-            }
-            _ => continue,
-        }
-
-        result.push('=');
-
-        match value {
-            LuaValue::String(s) => {
-                result.push_str(&format!("\"{}\"", s.to_str()?.replace("\"", "\\\"")));
-            }
-            LuaValue::Integer(i) => {
-                result.push_str(&i.to_string());
-            }
-            LuaValue::Number(n) => {
-                result.push_str(&n.to_string());
-            }
-            LuaValue::Boolean(b) => {
-                result.push_str(if b { "true" } else { "false" });
-            }
-            LuaValue::Table(nested) => {
-                result.push_str(&serialize_lua_table(lua, &nested)?);
-            }
-            _ => {
-                result.push_str("nil");
-            }
-        }
-    }
-
-    result.push('}');
-    Ok(result)
 }
 
 fn register_lua_functions(
@@ -205,14 +146,11 @@ fn register_self_lib(
     let id_clone = id.clone();
     let send_msg_fn = lua.create_function(
         move |lua_ctx, (receiver_id, kind, content, delay): (String, String, LuaTable, u64)| {
-            // Serialize Lua value to Lua code string for efficient cross-VM transfer
-            let serialized = MessageContent::LuaTable(serialize_lua_table(lua_ctx, &content)?);
-
             command_queue_clone.borrow_mut().push(Command::SendMessage {
                 sender: id_clone.clone(),
                 receiver: crate::core::messaging::MessageReceiver::Entity { id: receiver_id },
                 kind,
-                content: serialized,
+                content: convert_to_json(lua_ctx, &content)?,
                 delay,
             });
 
@@ -228,7 +166,7 @@ fn register_self_lib(
             sender: id_clone.clone(),
             receiver: crate::core::messaging::MessageReceiver::Radius2D { x, y, radius },
             kind,
-            content: MessageContent::LuaTable(serialize_lua_table(lua_ctx, &content)?),
+            content: convert_to_json(lua_ctx, &content)?,
             delay: 1,
         });
         Ok(())
@@ -236,7 +174,7 @@ fn register_self_lib(
 
     // Send system message to destroy an entity
     let command_queue_clone = command_queue.clone();
-    let destroy_fn = lua.create_function(move |_, (entity_id)| {
+    let destroy_fn = lua.create_function(move |_, entity_id| {
         command_queue_clone
             .borrow_mut()
             .push(Command::RemoveEntity { id: entity_id });

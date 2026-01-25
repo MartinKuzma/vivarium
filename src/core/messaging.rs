@@ -1,20 +1,17 @@
 use std::{collections::BinaryHeap};
 
+use serde_json::{Map, Value};   
+pub type JSONObject = serde_json::Map<String, serde_json::Value>;
+
 pub struct MessageBus {
-    current_time: u64,
     messages: BinaryHeap<Message>,
 }
 
 impl MessageBus {
     pub fn new() -> Self {
         MessageBus {
-            current_time: 0,
             messages: BinaryHeap::new(),
         }
-    }
-
-    pub fn update_time(&mut self, new_time: u64) {
-        self.current_time = new_time;
     }
 
     pub fn schedule_message(
@@ -22,15 +19,15 @@ impl MessageBus {
         sender: &String,
         receiver: MessageReceiver,
         kind: String,
-        content: MessageContent,
-        delay: u64,
+        content: JSONObject,
+        receive_at: u64,
     ) {
         let message = Message {
             sender: sender.clone(),
             receiver,
             content,
             kind,
-            receive_step: self.current_time + delay,
+            receive_step: receive_at,
         };
 
         self.messages.push(message);
@@ -38,9 +35,9 @@ impl MessageBus {
 
     // Retrieve one message scheduled for delivery at the current step
     // Returns None if no messages are deliverable at this step
-    pub fn get_deliverable_message(&mut self) -> Option<Message> {
+    pub fn get_deliverable_message(&mut self, current_time: u64) -> Option<Message> {
         match self.messages.peek() {
-            Some(msg) if msg.receive_step <= self.current_time => Some(self.messages.pop().unwrap()),
+            Some(msg) if msg.receive_step <= current_time => Some(self.messages.pop().unwrap()),
             _ => None,
         }
     }
@@ -51,7 +48,7 @@ impl MessageBus {
 pub struct Message {
     pub sender: String,
     pub receiver: MessageReceiver,
-    pub content: MessageContent,
+    pub content: Map<String, Value>,
     pub kind: String, // Kind of message (e.g., "HealthStatus", "TradeRequest", etc.)
     pub receive_step: u64, // Step at which the message should be received
 }
@@ -60,11 +57,6 @@ pub struct Message {
 pub enum MessageReceiver {
     Entity { id: String },               // Entity ID and Component TypeId
     Radius2D { x: f32, y: f32, radius: f32 }, // Broadcast to all components of a given type within radius
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MessageContent {
-    LuaTable(String),
 }
 
 impl Eq for Message {}
@@ -96,69 +88,65 @@ pub enum Command {
         sender: String,
         receiver: MessageReceiver,
         kind: String,
-        content: MessageContent,
+        content: JSONObject,
         delay: u64,
     },
     RecordMetric { name: String, value: f64 },
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn test_message_scheduling_and_delivery() {
-//         let mut bus = MessageBus::new();
-//         let mut current_time = 0;
+    #[test]
+    fn test_message_scheduling_and_delivery() {
+        let mut bus = MessageBus::new();
+        let sender = "agent".to_string();
 
-//         bus.update_time(current_time);
+        let make_json = |text: &str| {
+            let mut obj = serde_json::Map::new();
+            obj.insert("text".to_string(), serde_json::Value::String(text.to_string()));
+            obj
+        };
 
-//         let sender = "agent".to_string();
-
-//         bus.schedule_message(
-//             &sender,
-//             MessageReceiver::Entity { id: "agent_1".to_string() },
-//             String::from("Greeting"),
-//             MessageContent::Text("Hello".to_string()),
-//             3,
-//         );
-//         bus.schedule_message(
-//             &sender,
-//             MessageReceiver::Entity { id: "agent_2".to_string() },
-//             String::from("Greeting"),
-//             MessageContent::Text("Hi".to_string()),
-//             3,
-//         );
+        bus.schedule_message(
+            &sender,
+            MessageReceiver::Entity { id: "agent_1".to_string() },
+            String::from("Greeting"),
+            make_json("Hello"),
+            3,
+        );
+        bus.schedule_message(
+            &sender,
+            MessageReceiver::Entity { id: "agent_2".to_string() },
+            String::from("Greeting"),
+            make_json("Hi"),
+            3,
+        );
         
-//         bus.schedule_message(
-//             &sender,
-//             MessageReceiver::Entity { id: "agent_2".to_string() },
-//             String::from("Greeting"),
-//             MessageContent::Text("Hi, again".to_string()),
-//             2,
-//         );
+        bus.schedule_message(
+            &sender,
+            MessageReceiver::Entity { id: "agent_2".to_string() },
+            String::from("Greeting"),
+            make_json("Hi, again"),
+            2,
+        );
 
-//         current_time += 2;
-//         // At step 2, no messages should be deliverable
-//         assert!(bus.get_deliverable_message().is_none());
+        // At step 1, no messages should be deliverable
+        assert!(bus.get_deliverable_message(1).is_none());
 
-//         current_time += 1;
-//         // At step 3, the first message should be deliverable
-//         let msg1 = bus.get_deliverable_message().unwrap();
-//         assert_eq!(msg1.content, MessageContent::LuaTable("Hello".to_string()));
+        // At step 2, the message scheduled for step 2 should be deliverable
+        let msg1 = bus.get_deliverable_message(2).unwrap();
+        assert_eq!(msg1.receive_step, 2);
 
-//         current_time += 1;
-//         // At step 4, the second message should be deliverable
-//         let msg2 = bus.get_deliverable_message().unwrap();
-//         assert_eq!(msg2.content, MessageContent::Text("Hi".to_string()));
+        // At step 3, the two messages scheduled for step 3 should be deliverable
+        let msg2 = bus.get_deliverable_message(3).unwrap();
+        assert_eq!(msg2.receive_step, 3);
 
-//         current_time += 1;
-//         // At step 4, the third message should also be deliverable
-//         let msg3 = bus.get_deliverable_message().unwrap();
-//         assert_eq!(msg3.content, MessageContent::Text("Hi, again".to_string()));
+        let msg3 = bus.get_deliverable_message(3).unwrap();
+        assert_eq!(msg3.receive_step, 3);
 
-//         current_time += 1;
-//         // No more messages should be deliverable
-//         assert!(bus.get_deliverable_message().is_none());
-//     }
-// }
+        // No more messages should be deliverable
+        assert!(bus.get_deliverable_message(5).is_none());
+    }
+}

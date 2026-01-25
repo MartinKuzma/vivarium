@@ -1,7 +1,7 @@
 use serde::de;
 
 use crate::core::Entity;
-use crate::core::messaging::{Message, MessageBus};
+use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
@@ -50,7 +50,7 @@ impl World {
 
     pub fn fetch_messages(&mut self) -> Vec<Message> {
         let mut messages = Vec::new();
-        while let Some(msg) = self.msg_bus.get_deliverable_message() {
+        while let Some(msg) = self.msg_bus.get_deliverable_message(self.simulation_time) {
             messages.push(msg);
         }
 
@@ -87,9 +87,8 @@ impl World {
                     kind,
                     content,
                     delay,
-                } => {
-                    self.msg_bus
-                        .schedule_message(&sender, receiver, kind, content, delay);
+                } => {                    
+                    self.msg_bus.schedule_message(&sender, receiver, kind, content, self.simulation_time + delay);
                 }
                 crate::core::messaging::Command::RemoveEntity { id } => {
                     self.remove_entity(&id);
@@ -120,7 +119,7 @@ impl World {
         }
     }
 
-    pub fn set_entity_state(&mut self, id: &String, state: &str) -> Result<(), String> {
+    pub fn set_entity_state(&mut self, id: &String, state: JSONObject) -> Result<(), String> {
         if let Some(entity) = self.get_state_ref().entities.get(id) {
             entity.borrow_mut().get_lua_controller_mut().set_state(state)
         } else {
@@ -130,7 +129,6 @@ impl World {
 
     fn update_simulation_time(&mut self, new_time: u64) {
         self.simulation_time = new_time;
-        self.msg_bus.update_time(new_time);
         self.metrics.update_time(new_time);
     }
 

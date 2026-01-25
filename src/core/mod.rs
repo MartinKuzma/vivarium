@@ -1,7 +1,7 @@
 mod entity;
 mod world;
-mod messaging;
-mod lua;
+mod scripting;
+pub mod messaging;
 pub mod metrics;
 pub mod snapshot;
 

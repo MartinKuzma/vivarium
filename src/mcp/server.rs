@@ -9,6 +9,7 @@ use rmcp::{
     model::{ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
+use crate::core::messaging::JSONObject;
 
 const SERVER_INSTRUCTIONS: &str = include_str!("../../docs/mcp/instructions.md");
 
@@ -33,12 +34,20 @@ pub struct AdvanceSimulationRequest {
     pub num_steps: u32,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct SetEntityStateRequest {
+    #[schemars(description = "The unique ID of the entity")]
+    pub id: String,
+    #[schemars(description = "The state as a JSON object to set for the entity")]
+    pub state: JSONObject,
+}
+
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct Entity {
     #[schemars(description = "The unique ID of the entity")]
     pub id: String,
-    #[schemars(description = "The serialized state of the entity's Lua script")]
-    pub state: String,
+    #[schemars(description = "The current state of the entity as a JSON object")]
+    pub state: JSONObject,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -138,7 +147,7 @@ impl SimulationToolServer {
                         None,
                     ));
                 }
-            }
+            };
         }
 
         Ok(CallToolResult::success(vec![
@@ -189,14 +198,14 @@ impl SimulationToolServer {
         *world = crate::core::World::new();
     }
 
-    #[tool(description = "Set the state of a specific entity by its ID. The state must be a serialized Lua table string compatible with the entity's Lua script.")]
+    #[tool(description = "Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script.")]
     pub fn set_entity_state(
         &self,
-        Parameters((id, state)): Parameters<(String, String)>,
+        Parameters(SetEntityStateRequest { id, state }): Parameters<SetEntityStateRequest>,
     ) -> Result<(), McpError> {
         let mut world = self.world.lock().unwrap();
 
-        world.set_entity_state(&id, &state).map_err(|e| {
+        world.set_entity_state(&id, state).map_err(|e| {
             McpError::new(
                 rmcp::model::ErrorCode::INVALID_PARAMS,
                 format!("Failed to set state for entity '{}': {}", id, e),

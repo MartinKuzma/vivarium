@@ -3,7 +3,7 @@ use crate::core::world::WorldState;
 use crate::core::messaging::Command;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::core::lua::LuaScriptController;
+use crate::core::scripting::lua::LuaScriptController;
 
 pub struct Entity {
     lua_controller: LuaScriptController,
