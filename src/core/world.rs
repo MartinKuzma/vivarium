@@ -58,9 +58,7 @@ impl World {
     }
 
     pub fn update(&mut self, delta: u64) -> Result<WorldUpdateResult, String> {
-        let mut update_result = WorldUpdateResult {
-            delivered_messages: Vec::new(),
-        };
+        let mut update_result = WorldUpdateResult::new();
 
         // Update simulation time
         self.update_simulation_time(self.simulation_time + delta);
@@ -148,5 +146,13 @@ impl World {
 impl WorldState {
     pub fn get_entities(&self) -> &HashMap<String, RefCell<Entity>> {
         &self.entities
+    }
+}
+
+impl WorldUpdateResult {
+    pub fn new() -> Self {
+        WorldUpdateResult {
+            delivered_messages: Vec::new(),
+        }
     }
 }

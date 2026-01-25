@@ -41,7 +41,6 @@ impl MessageBus {
             _ => None,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
