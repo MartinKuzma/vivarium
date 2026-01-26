@@ -41,7 +41,6 @@ pub struct EntitySnapshot {
     pub state: JSONObject, // Serialized state of the entity
 }
 
-
 impl EntitySnapshot {
     pub fn new(id: String, script: String, state: JSONObject) -> Self {
         EntitySnapshot {

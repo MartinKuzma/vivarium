@@ -19,11 +19,13 @@ pub struct SimulationToolServer {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct CreateEntityRequest {
-    #[schemars(description = "The name of the entity to create")]
-    pub id: String,
-    #[schemars(description = "The Lua script controlling the entity. Must define an 'update' function.")]
+pub struct CreateEntitiesRequest {
+    #[schemars(description = "The Lua script controlling the entities. Must define an 'update' function.")]
     pub lua_script: String,
+    #[schemars(description = "The number of entities to create")]
+    pub count: usize,
+    #[schemars(description = "The prefix for the entity names")]
+    pub name_prefix: String,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -32,6 +34,9 @@ pub struct AdvanceSimulationRequest {
     pub step_duration: u64,
     #[schemars(description = "The number of steps to run")]
     pub num_steps: u32,
+    #[serde(default)]
+    #[schemars(description = "Whether to include delivered messages in the response")]
+    pub include_delivered_messages: bool,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -60,6 +65,8 @@ pub struct ListEntitiesResponse {
 pub struct AdvanceSimulationResponse {
     #[schemars(description = "List of delivered messages during the simulation steps")]
     pub delivered_messages: Vec<String>,
+    #[schemars(description = "Total number of delivered messages during the simulation steps")]
+    pub number_of_messages: usize,
 }
 
 #[tool_router]
@@ -72,15 +79,15 @@ impl SimulationToolServer {
         }
     }
 
-    #[tool(description = "Create a new entity with a Lua script. The script must define an 'update(msgs)' function. Each entity needs a unique ID.")]
-    fn create_entity(
+    #[tool(description = "Create new multiple entities with a Lua script")]
+    fn create_entities(
         &self,
-        Parameters(CreateEntityRequest { id, lua_script }): Parameters<CreateEntityRequest>,
+        Parameters(CreateEntitiesRequest { lua_script, count, name_prefix }): Parameters<CreateEntitiesRequest>,
     ) -> String {
         let mut world = self.world.lock().unwrap();
-        match world.create_entity(&id, lua_script.clone()) {
-            Ok(_) => return format!("Entity '{}' created with Lua script: {}", id, lua_script),
-            Err(e) => return format!("Failed to create entity '{}': {}", id, e),
+        match world.create_entities(&lua_script, count, &name_prefix) {
+            Ok(_) => return format!("Created {} entities with Lua script: {}", count, lua_script),
+            Err(e) => return format!("Failed to create entities: {}", e),
         }
     }
 
@@ -128,17 +135,23 @@ impl SimulationToolServer {
         Parameters(AdvanceSimulationRequest {
             step_duration,
             num_steps,
+            include_delivered_messages,
         }): Parameters<AdvanceSimulationRequest>,
     ) -> Result<CallToolResult, McpError> {
         let mut delivered_messages: Vec<String> = Vec::new();
+        let mut number_of_messages = 0;
 
         let mut world = self.world.lock().unwrap();
         for _ in 0..num_steps {
             match world.update(step_duration) {
                 Ok(result) => {
-                    for msg in result.delivered_messages {
-                        delivered_messages.push(format!("{:?}", msg));
-                    }
+                    number_of_messages += result.delivered_messages.len();
+
+                    if include_delivered_messages {
+                        for msg in result.delivered_messages {
+                            delivered_messages.push(format!("{:?}", msg));
+                        }
+                    }   
                 }
                 Err(e) => {
                     return Err(McpError::new(
@@ -151,7 +164,7 @@ impl SimulationToolServer {
         }
 
         Ok(CallToolResult::success(vec![
-            Content::json(&AdvanceSimulationResponse { delivered_messages }).unwrap(),
+            Content::json(&AdvanceSimulationResponse { delivered_messages, number_of_messages }).unwrap(),
         ]))
     }
 

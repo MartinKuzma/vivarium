@@ -7,10 +7,14 @@ pub enum CoreError {
 
     ScriptExecution{message: String},
     ScriptState{message: String},
+    
+    WorldAlreadyExists,
+    WorldNotFound{name: String},
 
     SerializationError(String),
     DeserializationError(String),
     SnapshotError(String),
+    SnapshotNotFound{name: String},
  }
 
  impl fmt::Display for CoreError {
@@ -23,6 +27,9 @@ pub enum CoreError {
             CoreError::SerializationError(message) => write!(f, "Serialization error: {}", message),
             CoreError::DeserializationError(message) => write!(f, "Deserialization error: {}", message),
             CoreError::SnapshotError(message) => write!(f, "Snapshot error: {}", message),
+            CoreError::SnapshotNotFound { name } => write!(f, "Snapshot '{}' not found", name),
+            CoreError::WorldAlreadyExists => write!(f, "World already exists"),
+            CoreError::WorldNotFound { name } => write!(f, "World '{}' not found", name),
         }
     }
  }

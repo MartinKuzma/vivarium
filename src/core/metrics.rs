@@ -22,7 +22,6 @@ pub struct MetricStats {
     pub values_over_time: Vec<(u64, f64)>,
 }
 
-
 pub struct Metrics {
     metrics: HashMap<String, Vec<Metric>>,
 }
@@ -34,11 +33,11 @@ impl Metrics {
         }
     }
 
-    pub fn new_from_snapshot(snapshot: MetricsSnapshot) -> Self {
+    pub fn new_from_snapshot(snapshot: &MetricsSnapshot) -> Self {
         let mut metrics = HashMap::new();
-        for (name, values) in snapshot.metrics {
-            let metric_values: Vec<Metric> = values.into_iter().map(|(timestamp, value)| Metric { timestamp, value }).collect();
-            metrics.insert(name, metric_values);
+        for (name, values) in &snapshot.metrics {
+            let metric_values: Vec<Metric> = values.iter().map(|(timestamp, value)| Metric { timestamp: *timestamp, value: *value }).collect();
+            metrics.insert(name.clone(), metric_values);
         }
 
         Metrics {
@@ -105,7 +104,7 @@ impl Metrics {
         all_stats
     }
 
-    pub fn get_metrics_snapshot(&self) -> MetricsSnapshot {
+    pub fn create_snapshot(&self) -> MetricsSnapshot {
         let mut snapshot = HashMap::new();
         for (name, metrics) in &self.metrics {
             let values: Vec<(u64, f64)> = metrics.iter().map(|m| (m.timestamp, m.value)).collect();
