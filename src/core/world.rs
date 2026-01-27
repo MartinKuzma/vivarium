@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
 
+// Represents a simulation world containing entities, message bus, and metrics.
+// This is where the main simulation loop occurs.
 pub struct World {
     msg_bus: MessageBus,
     state: Rc<RefCell<WorldState>>,

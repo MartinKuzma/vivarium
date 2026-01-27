@@ -2,15 +2,13 @@
 This MCP server provides tools to run agent-based simulations using Lua scripts. Agents can send and receive messages, maintain state, and interact within the simulation environment. Simulation time is managed in discrete steps. Simulation can be reset to its initial state.
 
 ## Usage Flow
-1. **Restart simulation** using `reset_simulation` to clear previous state
-2. **Create entities** using `create_entity` - each entity needs a unique ID and Lua script
-3. **Run simulation** using `run_simulation_steps` to advance the simulation
-4. **Check state** using `list_entities` to see all entities in the simulation
+1. **Define simulation world** using `create_world` - specify world name and parameters such as entities
+2. **Run simulation** using `run_simulation_steps` to advance the simulation
+3. **Check state** using `list_entities` specify world name to see all entities in the simulation
+4. **Check metrics** using `get_metrics` to retrieve recorded metrics
 
 ## Lua Script Requirements
-Each entity script MUST define THREE functions:
-
-
+Each entity script MUST define THREE functions;
 
 1. **`update(current_time, msgs)`** - Processes messages and executes entity logic:
 current_time: current simulation time in seconds

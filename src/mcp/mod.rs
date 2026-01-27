@@ -1,3 +1,4 @@
 mod server;
+mod tools;
 
-pub use crate::mcp::server::SimulationToolServer;
+pub use crate::mcp::server::VivariumToolServer;

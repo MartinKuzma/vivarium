@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use crate::core::messaging::{JSONObject, Message};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct WorldSnapshot {
     pub simulation_time: u64, // Simulation time at which the snapshot was taken
     pub entities: Vec<EntitySnapshot>, // Placeholder for entity snapshots
@@ -11,7 +11,7 @@ pub struct WorldSnapshot {
     pub metrics : MetricsSnapshot,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MetricsSnapshot {
     pub metrics: HashMap<String, Vec<(u64, f64)>>, // Metric name to list of (timestamp, value) pairs
 }
@@ -34,7 +34,7 @@ impl WorldSnapshot {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EntitySnapshot {
     pub id: String,
     pub script: String,
