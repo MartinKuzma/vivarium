@@ -19,21 +19,20 @@ pub struct LuaScriptController {
 
     incoming_msgs: Vec<Message>, // Incoming messages to be processed on next update
     command_queue: Rc<RefCell<Vec<Command>>>, // Queue of commands to be executed by the world after update
-    script: String,
 }
 
 impl LuaScriptController {
     pub fn new(
         id: String,
-        script: String,
+        script: &String,
         world_state: Rc<RefCell<WorldState>>,
     ) -> Result<Self, mlua::Error> {
-        Self::init_lua(&id, script, world_state)
+        Self::init_lua(&id, &script, world_state)
     }
 
     fn init_lua(
         id: &String,
-        script: String,
+        script: &String,
         world_state: Rc<RefCell<WorldState>>,
     ) -> LuaResult<LuaScriptController> {
         let lua = Lua::new();
@@ -41,7 +40,7 @@ impl LuaScriptController {
 
         register_lua_functions(&lua, id, command_queue.clone(), world_state)?;
 
-        lua.load(script.clone()).exec()?;
+        lua.load(script).exec()?;
 
         // Script needs to have update function
         let update_function: LuaFunction = lua.globals().get("update")?;
@@ -61,7 +60,6 @@ impl LuaScriptController {
             set_state_fn: set_state_function_reg,
             incoming_msgs: Vec::new(),
             command_queue: command_queue,
-            script,
         })
     }
 
@@ -120,10 +118,6 @@ impl LuaScriptController {
 
     pub fn push_message(&mut self, msg: Message) {
         self.incoming_msgs.push(msg);
-    }
-
-    pub fn get_script(&self) -> &String {
-        &self.script
     }
 }
 

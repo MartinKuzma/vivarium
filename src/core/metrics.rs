@@ -11,10 +11,15 @@ pub struct Metric {
 
 #[derive(Debug, serde::Serialize,schemars::JsonSchema)]
 pub struct MetricStats {
+    #[schemars(description = "The name of the metric")]
     pub name: String,
+    #[schemars(description = "Total sum of the metric values")]
     pub total: f64,
+    #[schemars(description = "Average of the metric values")]
     pub average: f64,
+    #[schemars(description = "Minimum recorded value for the metric")]
     pub min: f64,
+    #[schemars(description = "Maximum recorded value for the metric")]
     pub max: f64,
     #[schemars(description = "Number of recorded values for the metric")]
     pub count: u64,
@@ -71,7 +76,7 @@ impl Metrics {
         }
     }
 
-    pub fn get_metric_stats(&self, name : &str) -> Option<MetricStats> {
+    pub fn compute_metric_stats(&self, name : &str) -> Option<MetricStats> {
         self.metrics.get(name).map(|values| {
             let total: f64 = values.iter().map(|m| m.value).sum();
             let count = values.len() as f64;
@@ -94,16 +99,6 @@ impl Metrics {
         })
     }
 
-    pub fn get_all_metrics(&self) -> Vec<MetricStats> {
-        let mut all_stats = Vec::new();
-        for (name, _) in &self.metrics {
-            if let Some(stats) = self.get_metric_stats(name) {
-                all_stats.push(stats);
-            }
-        }
-        all_stats
-    }
-
     pub fn create_snapshot(&self) -> MetricsSnapshot {
         let mut snapshot = HashMap::new();
         for (name, metrics) in &self.metrics {
@@ -112,6 +107,10 @@ impl Metrics {
         }
 
         MetricsSnapshot { metrics: snapshot}
+    }
+
+    pub fn list_metric_names(&self) -> Vec<String> {
+        self.metrics.keys().cloned().collect()
     }
 }
 

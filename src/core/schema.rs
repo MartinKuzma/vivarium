@@ -1,22 +1,19 @@
 use rmcp::schemars;
-use crate::core::errors::CoreError;
+use crate::core::{errors::CoreError, messaging::JSONObject};
 use std::collections::HashMap;
 
 
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct EntityCfg {
+    #[schemars(description = "The unique ID of the entity")]
     pub id: String,
+    #[schemars(description = "The ID of the script to use for this entity")]
     pub script_id: String,
+    #[schemars(description = "Optional initial state for the entity as a JSON object")]
+    pub initial_state: Option<JSONObject>,
 }
 
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct BulkEntityCfg {
-    pub count: usize,
-    pub script_id: String,
-    pub id_prefix: String,
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct WorldCfg {
     #[schemars(description = "The name of the new world to create")]
     pub name: String,
@@ -24,8 +21,6 @@ pub struct WorldCfg {
     pub script_library: HashMap<String, String>,
     #[schemars(description = "The entities to initialize in the new world")]
     pub entities: Vec<EntityCfg>,
-    #[schemars(description = "Bulk entity creation configurations")]
-    pub bulk_entities: Vec<BulkEntityCfg>,
 }
 
 impl WorldCfg {
@@ -34,7 +29,6 @@ impl WorldCfg {
             name,
             script_library: HashMap::new(),
             entities: Vec::new(),
-            bulk_entities: Vec::new(),
         }
     }
 
@@ -48,17 +42,24 @@ impl WorldCfg {
             return Err(CoreError::DeserializationError(format!("Script ID '{}' not found in script library", script_id)));
         }
 
-        self.entities.push(EntityCfg { id, script_id });
+        self.entities.push(EntityCfg { id, script_id, initial_state: None });
         Ok(())
     }
 
-    pub fn add_bulk_entities(&mut self, count: usize, script_id: String, id_prefix: String) -> Result<(), CoreError> {
+    // Update or insert entity
+    pub fn upsert_entity(&mut self, id: &String, script_id: &String, initial_state: Option<JSONObject>) -> Result<(), CoreError> {
         // Is script defined?
-        if !self.script_library.contains_key(&script_id) {
+        if !self.script_library.contains_key(script_id) {
             return Err(CoreError::DeserializationError(format!("Script ID '{}' not found in script library", script_id)));
         }
 
-        self.bulk_entities.push(BulkEntityCfg { count, script_id, id_prefix });
+        if let Some(entity_cfg) = self.entities.iter_mut().find(|e| e.id.eq(id)) {
+            entity_cfg.script_id = script_id.clone();
+            entity_cfg.initial_state = initial_state;
+        } else {
+            self.entities.push(EntityCfg { id: id.clone(), script_id: script_id.clone(), initial_state: initial_state });
+        }
+
         Ok(())
     }
 
@@ -73,12 +74,6 @@ impl WorldCfg {
         for entity in &self.entities {
             if !script_ids.contains(&entity.script_id) {
                 return Err(CoreError::DeserializationError(format!("Entity '{}' references undefined script ID: {}", entity.id, entity.script_id)));
-            }
-        }
-
-        for bulk_entity in &self.bulk_entities {
-            if !script_ids.contains(&bulk_entity.script_id) {
-                return Err(CoreError::DeserializationError(format!("Bulk entity configuration references undefined script ID: {}", bulk_entity.script_id)));
             }
         }
 

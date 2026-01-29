@@ -42,8 +42,8 @@ impl MessageBus {
         }
     }
 
-    // Get an iterator over all messages (used for snapshotting)
-    pub fn get_messages_iter(&self) -> impl Iterator<Item = &Message> {
+    // Get an iterator over all messages
+    pub fn get_pending_messages_iter(&self) -> impl Iterator<Item = &Message> {
         self.messages.iter()
     }
 }

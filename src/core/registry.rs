@@ -20,18 +20,17 @@ impl Registry {
         }
     }
 
-    pub fn create(&self, config: WorldCfg) -> Result<(), crate::core::errors::CoreError> {
-        config.validate()?;
+    pub fn create(&self, config: WorldCfg) -> Result<(), CoreError> {
+        let name = config.name.clone(); 
+        let world = World::new(&config)?;
 
-        //TODO: Load from config!
-        let world = World::new();
         let mut self_worlds = self.worlds.write().unwrap();
 
-        if self_worlds.contains_key(&config.name) {
+        if self_worlds.contains_key(&name) {
             return Err(CoreError::WorldAlreadyExists);
         }
 
-        self_worlds.insert(config.name.to_string(), Arc::new(RwLock::new(world)));
+        self_worlds.insert(name, Arc::new(RwLock::new(world)));
         Ok(())
     }
 

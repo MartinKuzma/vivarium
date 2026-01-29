@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::core::messaging::{JSONObject, Message};
+use crate::core::{messaging::{JSONObject, Message}, schema::WorldCfg};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct WorldSnapshot {
+    pub configuration : WorldCfg,
     pub simulation_time: u64, // Simulation time at which the snapshot was taken
-    pub entities: Vec<EntitySnapshot>, // Placeholder for entity snapshots
-    pub messages: Vec<Message>,        // Placeholder for message snapshots
-    pub description: String, // Holds a description of the snapshot set by the user
-    pub metrics : MetricsSnapshot,
+    pub metrics : MetricsSnapshot, 
+    pub pending_messages: Vec<Message>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -18,35 +17,16 @@ pub struct MetricsSnapshot {
 
 impl WorldSnapshot {
     pub fn new(
+        configuration : WorldCfg,
         simulation_time: u64,
-        entities: Vec<EntitySnapshot>,
-        messages: Vec<Message>,
-        description: String,
+        pending_messages: Vec<Message>,
         metrics: MetricsSnapshot,
     ) -> Self {
         WorldSnapshot {
-            simulation_time,
-            entities,
-            messages,
-            description,
+            configuration,
+            simulation_time,   
+            pending_messages,
             metrics,
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct EntitySnapshot {
-    pub id: String,
-    pub script: String,
-    pub state: JSONObject, // Serialized state of the entity
-}
-
-impl EntitySnapshot {
-    pub fn new(id: String, script: String, state: JSONObject) -> Self {
-        EntitySnapshot {
-            id,
-            script,
-            state,
         }
     }
 }

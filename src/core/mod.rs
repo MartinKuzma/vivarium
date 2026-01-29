@@ -9,4 +9,3 @@ pub mod registry;
 pub mod schema;
 
 pub use entity::Entity;
-pub use world::World;
