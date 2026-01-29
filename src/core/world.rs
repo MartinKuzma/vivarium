@@ -2,7 +2,7 @@ use crate::core::Entity;
 use crate::core::errors::CoreError;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
-use crate::core::schema::WorldCfg;
+use crate::core::world_config::WorldCfg;
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
@@ -27,11 +27,12 @@ pub struct WorldUpdateResult {
 impl World {
     pub fn new(cfg: &WorldCfg) -> Result<Self, CoreError> {
         cfg.validate()?;
-        let state = Rc::new(RefCell::new(WorldState {
-            entities: HashMap::new(),
+
+        let mut state = Rc::new(RefCell::new(WorldState {
+            entities : HashMap::new(),
         }));
 
-        let mut entities = HashMap::new();
+        
         for entity_cfg in &cfg.entities {
             let mut entity = Entity::new(
                 entity_cfg.id.clone(),
@@ -55,7 +56,7 @@ impl World {
                     })?;
             }
 
-            entities.insert(entity_cfg.id.clone(), RefCell::new(entity));
+            state.borrow_mut().entities.insert(entity_cfg.id.clone(), RefCell::new(entity));
         }
 
         Ok(World {
@@ -67,19 +68,7 @@ impl World {
         })
     }
 
-    fn empty() -> Self {
-        World {
-            cfg: WorldCfg::new("default".to_string()),
-            simulation_time: 0,
-            msg_bus: MessageBus::new(),
-            state: Rc::new(RefCell::new(WorldState {
-                entities: HashMap::new(),
-            })),
-            metrics: Metrics::new(),
-        }
-    }
-
-    pub fn new_from_snapshot(snapshot: &crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
+    pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
         let mut world = World::new(&snapshot.configuration)?;
 
         world.simulation_time = snapshot.simulation_time;
@@ -228,6 +217,18 @@ impl World {
             self.metrics.create_snapshot(),
         ))
     }
+
+    pub fn get_entities_count(&self) -> usize {
+        self.get_state_ref().entities.len()
+    }
+
+    pub fn get_simulation_time(&self) -> u64 {
+        self.simulation_time   
+    }
+
+    pub fn get_pending_messages_count(&self) -> usize {
+        self.msg_bus.get_pending_messages_count()
+    }
 }
 
 impl WorldState {
@@ -246,9 +247,6 @@ impl WorldState {
             .collect()
     }
 
-    pub fn get_entity(&self, id: &str) -> Option<&RefCell<Entity>> {
-        self.entities.get(id)
-    }
 
     pub fn get_entity_state(&self, id: &str) -> Option<JSONObject> {
         if let Some(entity) = self.entities.get(id) {

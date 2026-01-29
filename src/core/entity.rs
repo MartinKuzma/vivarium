@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Entity {
-    id: String,
     script_id: String,
     lua_controller: LuaScriptController,
 }
@@ -35,7 +34,6 @@ impl Entity {
         }
 
         Ok(Entity {
-            id: id.clone(),
             script_id: script_id.clone(),
             lua_controller,
         })
@@ -55,10 +53,6 @@ impl Entity {
 
     pub fn get_lua_controller_mut(&mut self) -> &mut LuaScriptController {
         &mut self.lua_controller
-    }
-
-    pub fn get_id(&self) -> &String {
-        &self.id
     }
 
     pub fn get_script_id(&self) -> &String {

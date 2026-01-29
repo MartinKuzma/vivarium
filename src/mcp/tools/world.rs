@@ -4,7 +4,6 @@ use rmcp::model::Content;
 use rmcp::{ErrorData as McpError, handler::server::wrapper::Parameters, schemars};
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-
 pub struct CopyWorldRequest {
     #[schemars(description = "The name of the source simulation world to copy from")]
     pub source_world_name: String,
@@ -61,6 +60,18 @@ pub struct ListEntitiesRequest {
     pub include_states: bool,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct GetWorldStateRequest {
+    pub world_name: String,
+}
+
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct GetWorldStateResponse {
+    pub simulation_time: u64,
+    pub entities_count: usize,
+    pub pending_messages_count: usize,
+}
+
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct ListEntitiesResponse {
     #[schemars(description = "List of entity IDs in the simulation")]
@@ -71,7 +82,9 @@ pub fn list_entities(
     registry: &crate::core::registry::Registry,
     Parameters(request): Parameters<ListEntitiesRequest>,
 ) -> Result<CallToolResult, McpError> {
-    let mut resp = ListEntitiesResponse { entities: Vec::new() };
+    let mut resp = ListEntitiesResponse {
+        entities: Vec::new(),
+    };
 
     let world = registry.get(&request.world_name).ok_or_else(|| {
         McpError::new(
@@ -162,7 +175,9 @@ pub fn advance_simulation(
 
 pub fn list_worlds(registry: &crate::core::registry::Registry) -> Result<CallToolResult, McpError> {
     let worlds = registry.list();
-    Ok(CallToolResult::success(vec![Content::json(&worlds).unwrap()]))
+    Ok(CallToolResult::success(vec![
+        Content::json(&worlds).unwrap(),
+    ]))
 }
 
 pub fn set_entity_state(
@@ -184,7 +199,10 @@ pub fn set_entity_state(
         .map_err(|e| {
             McpError::new(
                 rmcp::model::ErrorCode::INVALID_PARAMS,
-                format!("Failed to set state for entity '{}': {}", request.entity_id, e),
+                format!(
+                    "Failed to set state for entity '{}': {}",
+                    request.entity_id, e
+                ),
                 None,
             )
         })?;
@@ -217,7 +235,9 @@ pub fn get_entity_state(
             )
         })?;
 
-    Ok(CallToolResult::success(vec![Content::json(&state).unwrap()]))
+    Ok(CallToolResult::success(vec![
+        Content::json(&state).unwrap(),
+    ]))
 }
 
 pub fn copy_world(
@@ -229,11 +249,13 @@ pub fn copy_world(
         &request.target_world_name,
         request.replace_if_exists,
     ) {
-        Ok(_) => Ok(CallToolResult::success(vec![Content::json(&format!(
-            "World '{}' copied to '{}' successfully",
-            request.source_world_name, request.target_world_name
-        ))
-        .unwrap()])),
+        Ok(_) => Ok(CallToolResult::success(vec![
+            Content::json(&format!(
+                "World '{}' copied to '{}' successfully",
+                request.source_world_name, request.target_world_name
+            ))
+            .unwrap(),
+        ])),
         Err(e) => Err(McpError::new(
             rmcp::model::ErrorCode::INTERNAL_ERROR,
             format!(
@@ -245,3 +267,27 @@ pub fn copy_world(
     }
 }
 
+pub fn get_world_state(
+    registry: &crate::core::registry::Registry,
+    request: GetWorldStateRequest,
+) -> Result<CallToolResult, McpError> {
+    let world_rc = registry.get(&request.world_name).ok_or_else(|| {
+        McpError::new(
+            rmcp::model::ErrorCode::INVALID_PARAMS,
+            format!("World '{}' not found", request.world_name),
+            None,
+        )
+    })?;
+
+    let world = world_rc.read().unwrap();
+    
+    let response = GetWorldStateResponse {
+        simulation_time: world.get_simulation_time(),
+        entities_count: world.get_entities_count(),
+        pending_messages_count: world.get_pending_messages_count(),
+    };
+
+    Ok(CallToolResult::success(vec![
+        Content::json(&response).unwrap(),
+    ]))
+}

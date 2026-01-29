@@ -26,7 +26,10 @@ impl VivariumToolServer {
     }
 
     #[tool(description = "Create a new simulation world with the specified configuration")]
-    fn create_world(&self, Parameters(config): Parameters<crate::core::schema::WorldCfg>) -> String {
+    fn create_world(
+        &self,
+        Parameters(config): Parameters<crate::core::world_config::WorldCfg>,
+    ) -> String {
         match self.world_registry.create(config) {
             Ok(_) => "World created successfully".to_string(),
             Err(e) => format!("Failed to create world: {}", e),
@@ -41,7 +44,9 @@ impl VivariumToolServer {
         }
     }
 
-    #[tool(description = "Copy an existing simulation world to a new world with the specified name")]
+    #[tool(
+        description = "Copy an existing simulation world to a new world with the specified name"
+    )]
     fn copy_world(
         &self,
         Parameters(request): Parameters<world::CopyWorldRequest>,
@@ -54,7 +59,9 @@ impl VivariumToolServer {
         world::list_worlds(&self.world_registry)
     }
 
-    #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
+    #[tool(
+        description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages."
+    )]
     fn list_entities(
         &self,
         Parameters(request): Parameters<world::ListEntitiesRequest>,
@@ -62,7 +69,9 @@ impl VivariumToolServer {
         world::list_entities(&self.world_registry, Parameters(request))
     }
 
-    #[tool(description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
+    #[tool(
+        description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity."
+    )]
     fn advance_simulation(
         &self,
         Parameters(request): Parameters<world::RunSimulationRequest>,
@@ -94,7 +103,9 @@ impl VivariumToolServer {
         crate::mcp::tools::metrics::get_metrics(&self.world_registry, request)
     }
 
-    #[tool(description = "Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script.")]
+    #[tool(
+        description = "Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script."
+    )]
     pub fn set_entity_state(
         &self,
         Parameters(request): Parameters<world::SetEntityStateRequest>,
@@ -109,10 +120,35 @@ impl VivariumToolServer {
     ) -> Result<CallToolResult, McpError> {
         world::get_entity_state(&self.world_registry, world_name, entity_id)
     }
-}
 
-unsafe impl Send for VivariumToolServer {}
-unsafe impl Sync for VivariumToolServer {}
+    #[tool(
+        description = "Get the overall state of the simulation world, including simulation time, entity count, and pending message count."
+    )]
+    pub fn get_world_state(
+        &self,
+        Parameters(request): Parameters<world::GetWorldStateRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        world::get_world_state(&self.world_registry, request)
+    }
+
+    #[tool(
+        description = "Create a snapshot of the current state of the simulation world, including entity states and pending messages."
+    )]
+    pub fn create_world_snapshot(
+        &self,
+        Parameters(request): Parameters<crate::mcp::tools::snapshots::CreateSnapshotRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        crate::mcp::tools::snapshots::create_snapshot(&self.world_registry, request)
+    }
+
+    #[tool(description = "Restore a simulation world to a previously created snapshot state.")]
+    pub fn restore_world_snapshot(
+        &self,
+        Parameters(request): Parameters<crate::mcp::tools::snapshots::RestoreSnapshotRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        crate::mcp::tools::snapshots::restore_snapshot(&self.world_registry, request)
+    }
+}
 
 #[tool_handler]
 impl ServerHandler for VivariumToolServer {
@@ -124,3 +160,6 @@ impl ServerHandler for VivariumToolServer {
         }
     }
 }
+
+unsafe impl Send for VivariumToolServer {}
+unsafe impl Sync for VivariumToolServer {}

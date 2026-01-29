@@ -1,5 +1,6 @@
 use std::{collections::BinaryHeap};
 
+use rmcp::schemars;
 use serde_json::{Map, Value};   
 pub type JSONObject = serde_json::Map<String, serde_json::Value>;
 
@@ -46,9 +47,14 @@ impl MessageBus {
     pub fn get_pending_messages_iter(&self) -> impl Iterator<Item = &Message> {
         self.messages.iter()
     }
+
+    // Get the count of pending messages
+    pub fn get_pending_messages_count(&self) -> usize {
+        self.messages.len()
+    }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Message {
     pub sender: String,
     pub receiver: MessageReceiver,
@@ -57,7 +63,7 @@ pub struct Message {
     pub receive_step: u64, // Step at which the message should be received
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum MessageReceiver {
     Entity { id: String },               // Entity ID and Component TypeId
     Radius2D { x: f32, y: f32, radius: f32 }, // Broadcast to all components of a given type within radius
