@@ -3,9 +3,11 @@ This MCP server provides tools to run agent-based simulations using Lua scripts.
 
 ## Usage Flow
 1. **Define simulation world** using `create_world` - specify world name and parameters such as entities
-2. **Run simulation** using `run_simulation_steps` to advance the simulation
-3. **Check state** using `list_entities` specify world name to see all entities in the simulation
-4. **Check metrics** using `get_metrics` to retrieve recorded metrics
+2. **Run simulation** using `advance_simulation` to advance the simulation by multiple steps
+3. **Check state** using `list_entities` to see all entities in the simulation
+4. **Check metrics** using `list_metrics` and `get_metrics` to retrieve recorded metrics
+5. **Manage worlds** using `copy_world`, `list_worlds`, and `delete_world` as needed
+6. **Save/restore state** using `create_world_snapshot` and `restore_world_snapshot` for checkpointing
 
 ## Lua Script Requirements
 Each entity script MUST define THREE functions;
@@ -58,9 +60,8 @@ end
     - value: metric value (number)
 - `self.destroy(entity_id)` - destroy the entity with the given ID
 
-## Message Content Types:
-1. **String messages**: `self.send_msg("agent2", "Greeting", "Hello", 0)`
-2. **Structured messages**: `self.send_msg("agent2", "Status", {health=100, x=10, y=20}, 0)`
+**Structured messages**: `self.send_msg("agent2", "Status", {health=100, x=10, y=20}, 0)`
+   - No unsafe msg.content access patterns!
    - Pass Lua tables directly - no JSON serialization overhead!
    - Nested tables fully supported
    - Supports: strings, numbers, booleans, and nested tables
@@ -144,3 +145,27 @@ end
 ```
 
 Run the simulation for 10 steps to observe the structured message exchange.
+
+## Available Tools
+
+### World Management
+- **`create_world`** - Create a new simulation world with the specified configuration including entities, script library, and initial state
+- **`delete_world`** - Delete an existing simulation world by name
+- **`copy_world`** - Copy an existing simulation world to a new world with the specified name (optionally replacing if it exists)
+- **`list_worlds`** - List all existing simulation worlds
+- **`get_world_state`** - Get the overall state of the simulation world, including simulation time, entity count, and pending message count
+
+### Simulation Control
+- **`advance_simulation`** - Advance the simulation by running multiple time steps with a specified step duration. Each step processes pending messages and executes entity update() functions
+- **`create_world_snapshot`** - Create a snapshot of the current state of the simulation world, including entity states and pending messages
+- **`restore_world_snapshot`** - Restore a simulation world to a previously created snapshot state
+
+### Entity Management
+- **`list_entities`** - List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages (optionally include entity states)
+- **`get_entity_state`** - Get the current state of a specific entity by its ID
+- **`set_entity_state`** - Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script
+
+### Metrics
+- **`list_metrics`** - List the names of all available metrics in the simulation world
+- **`get_metric`** - Get the current values of a specific metric by name
+- **`get_metrics`** - Get the current values of multiple metrics by their names

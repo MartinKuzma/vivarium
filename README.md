@@ -1,8 +1,8 @@
-# vivarium
+# Vivarium
 Agent based simulator with scriptable behaviours. Designed for LLM agents to reason and simulate in a structured environment.
 
 # Why Vivarium?
-Vivarium means "a place where life dwells", which kind of fits the idea of simulated worlds.
+Vivarium means "place of life", which kind of fits the idea of simulated worlds.
 
 My motivation is to use LLMs to simulate complex systems of agents and build various simulations that can help understand emergent behaviour. With their reasoning capabilities, LLMs can create numerous simulations and explore different scenarios.
 
