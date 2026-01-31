@@ -8,4 +8,6 @@ pub mod errors;
 pub mod registry;
 pub mod world_config;
 
+mod tests;
+
 pub use entity::Entity;

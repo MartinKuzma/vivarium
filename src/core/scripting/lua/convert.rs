@@ -62,6 +62,10 @@ fn lua_to_json_value(lua: &Lua, value: &LuaValue) -> LuaResult<serde_json::Value
 
 fn is_table_array(table: &LuaTable) -> LuaResult<bool> {
     let mut index = 1;
+    if table.len()? == 0 {
+        return Ok(false);
+    }
+
     for pair in table.pairs::<LuaValue, LuaValue>() {
         let (key, _) = pair?;
         match key {
