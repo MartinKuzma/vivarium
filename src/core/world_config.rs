@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[schemars(description = "Configuration for an entity in the simulation world.")]
 pub struct EntityCfg {
     #[schemars(description = "The unique ID of the entity")]
     pub id: String,
@@ -14,13 +15,25 @@ pub struct EntityCfg {
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[schemars(description = "Configuration for a simulation world, including its name, script library, and entities.")]
 pub struct WorldCfg {
     #[schemars(description = "The name of the new world to create")]
     pub name: String,
-    #[schemars(description = "The scripts available for entities in the world. Each entry is a tuple of (id, lua_script).")]
-    pub script_library: HashMap<String, String>,
+    #[schemars(description = "The script library containing available scripts. The key is the script ID. Each script must have a unique ID.")]
+    pub script_library: HashMap<String, ScriptCfg>,
     #[schemars(description = "The entities to initialize in the new world")]
     pub entities: Vec<EntityCfg>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[schemars(description = "Configuration for a script used by entities in the simulation world.")]
+pub struct ScriptCfg {
+    #[schemars(description = "The unique ID of the script")]
+    pub id: String,
+    #[schemars(description = "The kind of script (e.g., 'lua')")]
+    pub kind: String,
+    #[schemars(description = "The script content")]
+    pub script: String,
 }
 
 impl WorldCfg {
@@ -32,8 +45,8 @@ impl WorldCfg {
         }
     }
 
-    pub fn add_script(&mut self, id: String, lua_script: String) {
-        self.script_library.insert(id, lua_script);
+    pub fn add_script(&mut self, id: String, script: String) {
+        self.script_library.insert(id.clone(), ScriptCfg { id, kind: "lua".to_string(), script: script });
     }
 
     pub fn add_entity(&mut self, id: String, script_id: String) -> Result<(), CoreError> {

@@ -94,8 +94,6 @@ impl Metrics {
                 count: count as u64,
                 values_over_time,
             }
-
-
         })
     }
 

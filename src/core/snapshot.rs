@@ -33,18 +33,14 @@ impl WorldSnapshot {
     }
 
     pub fn to_yaml_file(&self, path: &str) -> Result<(), crate::core::errors::CoreError> {
-        let yaml_str = serde_yaml::to_string(self)
-            .map_err(|e| crate::core::errors::CoreError::SerializationError(format!("YAML serialization error: {}", e)))?;
-        std::fs::write(path, yaml_str)
-            .map_err(|e| crate::core::errors::CoreError::SerializationError(format!("Failed to write YAML file: {}", e)))?;
+        let yaml_str = serde_yaml::to_string(self)?;
+        std::fs::write(path, yaml_str)?;
         Ok(())
     }
 
     pub fn from_yaml_file(path: &str) -> Result<Self, crate::core::errors::CoreError> {
-        let yaml_str = std::fs::read_to_string(path)
-            .map_err(|e| crate::core::errors::CoreError::DeserializationError(format!("Failed to read YAML file: {}", e)))?;
-        let snapshot: WorldSnapshot = serde_yaml::from_str(&yaml_str)
-            .map_err(|e| crate::core::errors::CoreError::DeserializationError(format!("YAML deserialization error: {}", e)))?;
+        let yaml_str = std::fs::read_to_string(path)?;
+        let snapshot: WorldSnapshot = serde_yaml::from_str(&yaml_str)?;
         Ok(snapshot)
     }
 }

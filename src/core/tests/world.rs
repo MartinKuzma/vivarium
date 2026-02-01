@@ -1,6 +1,6 @@
-use crate::core::world::{self, World};
+use crate::core::snapshot::WorldSnapshot;
+use crate::core::world::World;
 use crate::core::world_config::WorldCfg;
-use crate::core::snapshot::{self, WorldSnapshot};
 
 #[test]
 fn test_load_from_file() {
@@ -34,7 +34,7 @@ fn test_load_from_yaml_file() {
 fn test_snapshosts() {
     let world_cfg = WorldCfg::from_yaml_file("src/core/tests/test_world_config.yaml").unwrap();
     let world = World::new(&world_cfg).unwrap();
-    
+
     let snapshot = world.create_snapshot().unwrap();
 
     assert_eq!(snapshot.configuration.name, "yaml_test_world");

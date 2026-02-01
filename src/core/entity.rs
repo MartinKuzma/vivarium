@@ -3,6 +3,7 @@ use crate::core::messaging::Command;
 use crate::core::messaging::{JSONObject, Message};
 use crate::core::scripting::lua::LuaScriptController;
 use crate::core::world::WorldState;
+use crate::core::world_config::ScriptCfg;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -15,11 +16,11 @@ impl Entity {
     pub fn new(
         id: String,
         script_id: String,
-        script: String,
+        script: ScriptCfg,
         initial_state: Option<JSONObject>,
         world_state: Rc<RefCell<WorldState>>,
     ) -> Result<Self, CoreError> {
-        let controller_result = LuaScriptController::new(id.clone(), &script, world_state);
+        let controller_result = LuaScriptController::new(id.clone(), &script.script, world_state);
         if let Err(e) = &controller_result {
             return Err(CoreError::EntityCreation {
                 id,

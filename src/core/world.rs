@@ -174,7 +174,7 @@ impl World {
         }
     }
 
-    pub fn get_entity_state(&self, id: &str) -> Option<JSONObject> {
+    pub fn get_entity_state(&self, id: &str) -> Result<JSONObject, CoreError> {
         self.get_state_ref().get_entity_state(id)
     }
 
@@ -248,14 +248,15 @@ impl WorldState {
     }
 
 
-    pub fn get_entity_state(&self, id: &str) -> Option<JSONObject> {
-        if let Some(entity) = self.entities.get(id) {
-            match entity.borrow().get_lua_controller().get_state() {
-                Ok(state) => Some(state),
-                Err(_) => None,
-            }
-        } else {
-            None
+    pub fn get_entity_state(&self, id: &str) -> Result<JSONObject, CoreError> {
+        match self.entities.get(id) {
+            Some(entity) => match entity.borrow().get_lua_controller().get_state() {
+                Ok(state) => Ok(state),
+                Err(e) => Err(CoreError::ScriptState{
+                    message: format!("Failed to get state for entity '{}': {}", id, e),
+                }),
+            },
+            None => Err(CoreError::EntityNotFound { id: id.to_string() }),
         }
     }
 }

@@ -32,8 +32,11 @@ impl Registry {
         Ok(())
     }
 
-    pub fn get(&self, name: &str) -> Option<Arc<RwLock<World>>> {
-        self.worlds.read().unwrap().get(name).cloned()
+    pub fn get(&self, name: &str) -> Result<Arc<RwLock<World>>, CoreError> {
+        match self.worlds.read().unwrap().get(name) {
+            Some(world) => Ok(world.clone()),
+            None => Err(CoreError::WorldNotFound { name: name.to_string() }),
+        }
     }
 
     pub fn delete(&self, name: &str) -> Result<(), CoreError> {
@@ -44,9 +47,7 @@ impl Registry {
     }
 
     pub fn copy(&self, source_name: &str, target_name: &str, replace: bool) -> Result<(), CoreError> {
-        let source_world = self.get(source_name).ok_or(
-            CoreError::WorldNotFound { name: source_name.to_string() }
-        )?;
+        let source_world = self.get(source_name)?;
 
         let source_world_guard = source_world.read().unwrap();
         let snapshot = source_world_guard.create_snapshot()?;

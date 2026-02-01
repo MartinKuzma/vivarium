@@ -1,8 +1,16 @@
 {
   "name": "file_test_world",
   "script_library": {
-    "script_a": "local health = 100\nlocal position = {x = 0, y = 0}\n\nfunction update(current_time, msgs)\n    for _, msg in ipairs(msgs) do\n        if msg.kind == \"damage\" then\n            health = health - msg.content.amount\n        end\n    end\n    \n    position.x = position.x + 1\n    \n    if health <= 0 then\n        world.record_metric(\"entities_destroyed\", 1)\n    end\nend\n\nfunction get_state()\n    return {\n        health = health,\n        position = position\n    }\nend\n\nfunction set_state(state)\n    health = state.health\n    position = state.position\nend",
-    "script_b": "local energy = 50\nlocal position = {x = 10, y = 10}\nlocal message_count = 0\n\nfunction update(current_time, msgs)\n    for _, msg in ipairs(msgs) do\n        if msg.kind == \"greeting\" then\n            message_count = message_count + 1\n            energy = energy + 10\n        end\n    end\n    \n    if energy > 0 then\n        energy = energy - 1\n    end\n    \n    world.record_metric(\"energy_level\", energy)\nend\n\nfunction get_state()\n    return {\n        energy = energy,\n        position = position,\n        message_count = message_count\n    }\nend\n\nfunction set_state(state)\n    energy = state.energy\n    position = state.position\n    message_count = state.message_count\nend"
+    "script_a": {
+      "id": "script_a",
+      "kind": "lua",
+      "script": "local health = 100\nlocal position = {x = 0, y = 0}\n\nfunction update(current_time, msgs)\n    for _, msg in ipairs(msgs) do\n        if msg.kind == \"damage\" then\n            health = health - msg.content.amount\n        end\n    end\n    \n    position.x = position.x + 1\n    \n    if health <= 0 then\n        world.record_metric(\"entities_destroyed\", 1)\n    end\nend\n\nfunction get_state()\n    return {\n        health = health,\n        position = position\n    }\nend\n\nfunction set_state(state)\n    health = state.health\n    position = state.position\nend"
+    },
+    "script_b": {
+      "id": "script_b",
+      "kind": "lua",
+      "script": "local energy = 50\nlocal position = {x = 10, y = 10}\nlocal message_count = 0\n\nfunction update(current_time, msgs)\n    for _, msg in ipairs(msgs) do\n        if msg.kind == \"greeting\" then\n            message_count = message_count + 1\n            energy = energy + 10\n        end\n    end\n    \n    if energy > 0 then\n        energy = energy - 1\n    end\n    \n    world.record_metric(\"energy_level\", energy)\nend\n\nfunction get_state()\n    return {\n        energy = energy,\n        position = position,\n        message_count = message_count\n    }\nend\n\nfunction set_state(state)\n    energy = state.energy\n    position = state.position\n    message_count = state.message_count\nend"
+    }
   },
   "entities": [
     {

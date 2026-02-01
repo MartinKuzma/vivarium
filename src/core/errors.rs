@@ -40,3 +40,22 @@ impl std::error::Error for CoreError {
         None
     }
 }
+
+// Automatic conversions for common error types
+impl From<serde_yaml::Error> for CoreError {
+    fn from(err: serde_yaml::Error) -> Self {
+        CoreError::SerializationError(format!("YAML error: {}", err))
+    }
+}
+
+impl From<serde_json::Error> for CoreError {
+    fn from(err: serde_json::Error) -> Self {
+        CoreError::SerializationError(format!("JSON error: {}", err))
+    }
+}
+
+impl From<std::io::Error> for CoreError {
+    fn from(err: std::io::Error) -> Self {
+        CoreError::SerializationError(format!("IO error: {}", err))
+    }
+}

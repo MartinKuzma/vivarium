@@ -7,9 +7,12 @@ use crate::mcp::VivariumToolServer;
 async fn main() ->  Result<(), String>  {
     let world_registry = crate::core::registry::Registry::new();
 
-    let service = VivariumToolServer::new(world_registry).serve(stdio()).await
+    let tool_server =  VivariumToolServer::new(world_registry);
+    let service = tool_server.serve(stdio()).await
         .map_err(|e| format!("Server error: {}", e))?;
 
+        
+    
     if let Err(e) = service.waiting().await {
         return Err(format!("Service error: {}", e));
     }
