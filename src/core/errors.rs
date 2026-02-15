@@ -14,7 +14,7 @@ pub enum CoreError {
     SerializationError(String),
     DeserializationError(String),
     SnapshotError(String),
-
+    WorldCapacityExceeded { capacity: usize },
 }
 
 impl fmt::Display for CoreError {
@@ -31,6 +31,7 @@ impl fmt::Display for CoreError {
             CoreError::SnapshotError(message) => write!(f, "Snapshot error: {}", message),
             CoreError::WorldAlreadyExists => write!(f, "World already exists"),
             CoreError::WorldNotFound { name } => write!(f, "World '{}' not found", name),
+            CoreError::WorldCapacityExceeded { capacity } => write!(f, "World capacity exceeded: {}", capacity),
         }
     }
 }

@@ -9,6 +9,9 @@ This MCP server provides tools to run agent-based simulations using Lua scripts.
 5. **Manage worlds** using `copy_world`, `list_worlds`, and `delete_world` as needed
 6. **Save/restore state** using `create_world_snapshot` and `restore_world_snapshot` for checkpointing
 
+## Failures
+The server will return errors for invalid operations, such as attempting to create a world that already exists. If the world exceeds the maximum allowed number of entities (10,000), a `WorldCapacityExceeded` error will be returned. That world should be deleted, if no longer needed.
+
 ## Lua Script Requirements
 Each entity script MUST define THREE functions;
 
@@ -59,6 +62,9 @@ end
     - name: metric name (string)
     - value: metric value (number)
 - `self.destroy(entity_id)` - destroy the entity with the given ID
+- `self.spawn_entity(script_id, initial_state)` - spawn a new entity with the given script and optional initial state
+    - script_id: ID of the script to use for the new entity
+    - initial_state: optional table to set the initial state of the new entity
 
 **Structured messages**: `self.send_msg("agent2", "Status", {health=100, x=10, y=20}, 0)`
    - No unsafe msg.content access patterns!

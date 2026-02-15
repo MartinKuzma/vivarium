@@ -93,6 +93,7 @@ impl Ord for Message {
 // Commands that entities can issue to the world during their update
 #[derive(Debug, Clone)]
 pub enum Command {
+    SpawnEntity { entity_id: String, script_id: String, initial_state: Option<JSONObject> },
     RemoveEntity { id: String },
     SendMessage {
         sender: String,

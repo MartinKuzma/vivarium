@@ -42,6 +42,20 @@ pub struct RestoreSnapshotRequest {
     pub snapshot: WorldSnapshot,
 }
 
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+pub struct LoadSnapshotFromFileRequest {
+    #[schemars(description = "The name of the simulation world to load the snapshot into")]
+    pub world_name: String,
+    #[schemars(description = "The file path of yaml snapshot to load")]
+    pub file_path: String,
+}
+
+#[derive(serde::Serialize, schemars::JsonSchema)]
+pub struct LoadSnapshotFromFileResponse {
+    #[schemars(description = "Success message")]
+    pub message: String,
+}
+
 pub fn create_snapshot(
     registry: &crate::core::registry::Registry,
     request: CreateSnapshotRequest,
@@ -110,5 +124,17 @@ pub fn save_snapshot_to_file(
 
     Ok(Json(SaveSnapshotToFileResponse {
         file_path: request.file_path,
+    }))
+}
+
+pub fn load_snapshot_from_file(
+    registry: &crate::core::registry::Registry,
+    request: LoadSnapshotFromFileRequest,
+) -> Result<Json<LoadSnapshotFromFileResponse>, McpError> {
+
+    let snapshot = WorldSnapshot::from_yaml_file(&request.file_path)?;
+    registry.restore_snapshot(&request.world_name, snapshot)?;
+    Ok(Json(LoadSnapshotFromFileResponse {
+        message: format!("Snapshot loaded from file '{}' into '{}'", request.file_path, request.world_name),
     }))
 }

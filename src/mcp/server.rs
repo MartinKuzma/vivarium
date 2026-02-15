@@ -169,6 +169,14 @@ impl VivariumToolServer {
     ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::SaveSnapshotToFileResponse>, McpError> {
         crate::mcp::tools::snapshots::save_snapshot_to_file(&self.world_registry, request)
     }
+
+    #[tool(description = "Load a simulation world snapshot from a YAML file.")]
+    pub fn load_world_snapshot_from_file(
+        &self,
+        Parameters(request): Parameters<crate::mcp::tools::snapshots::LoadSnapshotFromFileRequest>,
+    ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::LoadSnapshotFromFileResponse>, McpError> {
+        crate::mcp::tools::snapshots::load_snapshot_from_file(&self.world_registry, request)
+    }
 }
 
 #[tool_handler]

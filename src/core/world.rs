@@ -3,9 +3,12 @@ use crate::core::errors::CoreError;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
 use crate::core::world_config::WorldCfg;
+use crate::core::messaging::Command;
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
+
+const MAX_ENTITIES_PER_WORLD: usize = 10000;
 
 // Represents a simulation world containing entities, message bus, and metrics.
 pub struct World {
@@ -56,7 +59,7 @@ impl World {
                     })?;
             }
 
-            state.borrow_mut().entities.insert(entity_cfg.id.clone(), RefCell::new(entity));
+            state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
         }
 
         Ok(World {
@@ -114,15 +117,15 @@ impl World {
             commands.extend(entity_commands);
         }
 
-        self.process_commands(commands);
+        self.process_commands(commands)?;
 
         Ok(update_result)
     }
 
-    fn process_commands(&mut self, commands: Vec<crate::core::messaging::Command>) {
+    fn process_commands(&mut self, commands: Vec<Command>) -> Result<(), CoreError> {
         for command in commands {
             match command {
-                crate::core::messaging::Command::SendMessage {
+                Command::SendMessage {
                     sender,
                     receiver,
                     kind,
@@ -137,14 +140,30 @@ impl World {
                         self.simulation_time + delay,
                     );
                 }
-                crate::core::messaging::Command::RemoveEntity { id } => {
+                Command::RemoveEntity { id } => {
                     self.remove_entity(&id);
                 }
-                crate::core::messaging::Command::RecordMetric { name, value } => {
+                Command::RecordMetric { name, value } => {
                     self.metrics.record_metric(self.simulation_time, &name, value);
+                }
+                Command::SpawnEntity { script_id, entity_id, initial_state } => {
+                    // TODO: return error if entity with same ID exists or script is not found
+                    if let Some(script_cfg) = self.cfg.script_library.get(&script_id) {
+                        let entity = Entity::new(
+                            entity_id.clone(),
+                            script_id.clone(),
+                            script_cfg.clone(),
+                            initial_state,
+                            self.state.clone(),
+                        )?;
+
+                        self.get_state_mut().add_entity(entity_id, entity)?;
+                    }
                 }
             }
         }
+
+        Ok(())
     }
 
     fn deliver_messages(&mut self, update_result: &mut WorldUpdateResult) {
@@ -195,8 +214,14 @@ impl World {
     }
 
     pub fn create_snapshot(&self) -> Result<crate::core::snapshot::WorldSnapshot, CoreError> {
-        let mut world_config = self.cfg.clone();
+        let mut world_config = WorldCfg::new(self.cfg.name.clone());
 
+        // Copy scripts
+        for (script_id, script_cfg) in &self.cfg.script_library {
+            world_config.add_script(script_id.clone(), script_cfg.script.clone());
+        }
+
+        // Copy entities and their states
         for (id, entity_cell) in &self.get_state_ref().entities {
             let entity = entity_cell.borrow();
             let lua_controller = entity.get_lua_controller();
@@ -246,6 +271,15 @@ impl WorldState {
             .map(|(id, _)| id.clone())
             .collect()
     }
+
+    pub fn add_entity(&mut self, id : String, entity: Entity) -> Result<(), CoreError> {
+        if self.entities.len() >= MAX_ENTITIES_PER_WORLD {
+            return Err(CoreError::WorldCapacityExceeded{ capacity: MAX_ENTITIES_PER_WORLD });
+        }
+
+        self.entities.insert(id, RefCell::new(entity));
+        Ok(())
+    } 
 
 
     pub fn get_entity_state(&self, id: &str) -> Result<JSONObject, CoreError> {

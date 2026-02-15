@@ -39,8 +39,15 @@ fn test_snapshosts() {
 
     assert_eq!(snapshot.configuration.name, "yaml_test_world");
     assert_eq!(snapshot.configuration.entities.len(), 2);
-    assert_eq!(snapshot.configuration.entities[0].id, "entity_x");
-    assert_eq!(snapshot.configuration.entities[0].script_id, "script_x");
-    assert_eq!(snapshot.configuration.entities[1].id, "entity_y");
-    assert_eq!(snapshot.configuration.entities[1].script_id, "script_y");
+
+    // Entities are preserved in snapshot
+
+    snapshot.configuration.entities.iter().for_each(|entity_cfg| {
+        let original_entity_cfg = world_cfg
+            .entities
+            .iter()
+            .find(|e| e.id == entity_cfg.id)
+            .unwrap();
+        assert_eq!(entity_cfg.script_id, original_entity_cfg.script_id);
+    });
 }

@@ -1,10 +1,10 @@
+use crate::core::errors::CoreError;
 use crate::core::messaging;
 use crate::core::messaging::Command;
 use crate::core::messaging::JSONObject;
 use crate::core::messaging::Message;
 use crate::core::scripting::lua::convert::{convert_to_json, convert_to_lua_table};
 use crate::core::world::WorldState;
-use crate::core::errors::CoreError;
 
 use mlua::Lua;
 use mlua::prelude::*;
@@ -65,26 +65,36 @@ impl LuaScriptController {
 
     // Set the internal state of the Lua script from a serialized Lua table string
     pub fn set_state(&mut self, state: messaging::JSONObject) -> Result<(), CoreError> {
-        let state_table = convert_to_lua_table(&self.lua_vm, &state)
-            .map_err(|e| CoreError::ScriptState { message: format!("Error converting JSON to Lua table: {}", e) })?;
+        let state_table =
+            convert_to_lua_table(&self.lua_vm, &state).map_err(|e| CoreError::ScriptState {
+                message: format!("Error converting JSON to Lua table: {}", e),
+            })?;
 
         let result = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.set_state_fn)
             .and_then(|func| func.call::<()>(state_table));
 
-        result.map_err(|e| CoreError::ScriptState { message: format!("Error executing set_state function: {}", e) })
+        result.map_err(|e| CoreError::ScriptState {
+            message: format!("Error executing set_state function: {}", e),
+        })
     }
 
     pub fn update(&mut self, simulation_time: u64) -> Result<Vec<Command>, CoreError> {
-        let msgs_table = self.create_messages_table().map_err(|e| CoreError::ScriptExecution { message: format!("Error creating messages table: {}", e) })?;
+        let msgs_table = self
+            .create_messages_table()
+            .map_err(|e| CoreError::ScriptExecution {
+                message: format!("Error creating messages table: {}", e),
+            })?;
 
         let result = self
             .lua_vm
             .registry_value::<LuaFunction>(&self.update_fn)
             .and_then(|func| func.call::<()>((simulation_time, msgs_table)));
 
-        result.map_err(|e| CoreError::ScriptExecution { message: format!("Error executing update function: {}", e) })?;
+        result.map_err(|e| CoreError::ScriptExecution {
+            message: format!("Error executing update function: {}", e),
+        })?;
 
         Ok(std::mem::take(&mut *self.command_queue.borrow_mut()))
     }
@@ -110,10 +120,13 @@ impl LuaScriptController {
             .lua_vm
             .registry_value::<LuaFunction>(&self.get_state_fn)
             .and_then(|func| func.call::<LuaTable>(()))
-            .map_err(|e| CoreError::ScriptState { message: format!("Error calling get_state function: {}", e) })?;
+            .map_err(|e| CoreError::ScriptState {
+                message: format!("Error calling get_state function: {}", e),
+            })?;
 
-        return convert_to_json(&self.lua_vm, &state)
-            .map_err(|e| CoreError::ScriptState { message: format!("Error serializing state table: {}", e) });
+        return convert_to_json(&self.lua_vm, &state).map_err(|e| CoreError::ScriptState {
+            message: format!("Error serializing state table: {}", e),
+        });
     }
 
     pub fn push_message(&mut self, msg: Message) {
@@ -181,9 +194,30 @@ fn register_self_lib(
         Ok(())
     })?;
 
+    let command_queue_clone = command_queue.clone();
+    let spawn_fn = lua.create_function(
+        move |lua_ctx,
+              (entity_id, script_id, initial_state): (String, String, Option<LuaTable>)| {
+            let initial_state_json = match initial_state {
+                Some(table) => Some(convert_to_json(&lua_ctx, &table)?),
+                None => None,
+            };
+
+            let spawn_cmd = Command::SpawnEntity {
+                entity_id,
+                script_id,
+                initial_state: initial_state_json,
+            };
+
+            command_queue_clone.borrow_mut().push(spawn_cmd);
+            Ok(())
+        },
+    )?;
+
     self_lib.set("destroy", destroy_fn)?;
     self_lib.set("broadcast_msg", broadcast_msg_fn)?;
     self_lib.set("send_msg", send_msg_fn)?;
+    self_lib.set("spawn_entity", spawn_fn)?;
 
     lua.globals().set("self", self_lib)?;
     Ok(())

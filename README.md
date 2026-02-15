@@ -51,7 +51,40 @@ function set_state(state)
     y = state.position.y
 end
 ```
+
+## Lua API
+Scripts have access to the following APIs for interacting with the simulation:
+
+### self - Entity API
+| Function | Description |
+|----------|-------------|
+| self.id | The unique ID of the current entity |
+| self.send_msg(receiver_id, kind, content, delay) | Send a message to another entity with an optional delay (in simulation steps) |
+| self.destroy(entity_id) | Destroy an entity by its ID |
+
+### world - World API
+| Function | Description |
+|----------|-------------|
+| world.list_entities() | Returns a table of all entity IDs in the simulation |
+| world.record_metric(name, value) | Record a custom metric value for analysis |
+
 # MCP Tools
 The MCP server exposes various tools to interact with the simulation worlds and entities.
 | Name | Description |
 |------|-------------|
+| create_world | Create a new simulation world with the specified configuration |
+| delete_world | Delete an existing simulation world by name |
+| copy_world | Copy an existing simulation world to a new world with the specified name |
+| list_worlds | List all existing simulation worlds |
+| list_entities | List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages. |
+| advance_simulation | Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. |
+| get_world_state | Get the overall state of the simulation world, including simulation time, entity count, and pending message count. |
+| set_entity_state | Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script. |
+| get_entity_state | Get the current state of a specific entity by its ID. |
+| list_metrics | List the names of all available metrics in the simulation world. |
+| get_metric | Get the current values of a specific metric by name. |
+| get_metrics | Get the current values of multiple metrics by their names. |
+| create_world_snapshot | Create a snapshot of the current state of the simulation world, including entity states and pending messages. |
+| restore_world_snapshot | Restore a simulation world to a previously created snapshot state. |
+| save_world_snapshot_to_file | Save a simulation world snapshot to a YAML file. |
+| load_world_snapshot_from_file | Load a simulation world snapshot from a YAML file. |
