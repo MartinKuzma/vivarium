@@ -18,10 +18,7 @@ impl Registry {
         }
     }
 
-    pub fn create(&self, config: WorldCfg) -> Result<(), CoreError> {
-        let name = config.name.clone(); 
-        let world = World::new(&config)?;
-
+    pub fn add(&self, name: String, world: World) -> Result<(), CoreError> {
         let mut self_worlds = self.worlds.write().unwrap();
 
         if self_worlds.contains_key(&name) {
@@ -46,44 +43,44 @@ impl Registry {
         Ok(())
     }
 
-    pub fn copy(&self, source_name: &str, target_name: &str, replace: bool) -> Result<(), CoreError> {
-        let source_world = self.get(source_name)?;
+    // pub fn copy(&self, source_name: &str, target_name: &str, replace: bool) -> Result<(), CoreError> {
+    //     let source_world = self.get(source_name)?;
 
-        let source_world_guard = source_world.read().unwrap();
-        let snapshot = source_world_guard.create_snapshot()?;
+    //     let source_world_guard = source_world.read().unwrap();
+    //     let snapshot = source_world_guard.create_snapshot()?;
 
-        let mut target_worlds = self.worlds.write().unwrap();
+    //     let mut target_worlds = self.worlds.write().unwrap();
 
-        if !replace && target_worlds.contains_key(target_name) {
-            return Err(CoreError::WorldAlreadyExists);
-        }
+    //     if !replace && target_worlds.contains_key(target_name) {
+    //         return Err(CoreError::WorldAlreadyExists);
+    //     }
 
-        let target_world = World::new_from_snapshot(snapshot)?;
-        target_worlds.insert(target_name.to_string(), Arc::new(RwLock::new(target_world)));
-        Ok(())
-    }
+    //     let target_world = World::new_from_snapshot(snapshot)?;
+    //     target_worlds.insert(target_name.to_string(), Arc::new(RwLock::new(target_world)));
+    //     Ok(())
+    // }
 
     pub fn list(&self) -> Vec<String> {
         self.worlds.read().unwrap().keys().cloned().collect()
     }
 
-    pub fn restore_snapshot(&self, world_name: &str, snapshot: WorldSnapshot) -> Result<(), CoreError> {
-        let restored_world = World::new_from_snapshot(snapshot)?;
+    // pub fn restore_snapshot(&self, world_name: &str, snapshot: WorldSnapshot) -> Result<(), CoreError> {
+    //     let restored_world = World::new_from_snapshot(snapshot)?;
 
-        let mut worlds = self.worlds.write().unwrap();
-        worlds.insert(world_name.to_string(), Arc::new(RwLock::new(restored_world)));
-        Ok(())
-    }
+    //     let mut worlds = self.worlds.write().unwrap();
+    //     worlds.insert(world_name.to_string(), Arc::new(RwLock::new(restored_world)));
+    //     Ok(())
+    // }
 
-    pub fn get_snapshot(&self, world_name: &str) -> Result<WorldSnapshot, CoreError> {
-        match self.worlds.read().unwrap().get(world_name) {
-            Some(world) => {
-                let world_guard = world.read().unwrap();
-                world_guard.create_snapshot()
-            },
-            None => Err(CoreError::WorldNotFound { name: world_name.to_string() }),
-        }
-    }
+    // pub fn get_snapshot(&self, world_name: &str) -> Result<WorldSnapshot, CoreError> {
+    //     match self.worlds.read().unwrap().get(world_name) {
+    //         Some(world) => {
+    //             let world_guard = world.read().unwrap();
+    //             world_guard.create_snapshot()
+    //         },
+    //         None => Err(CoreError::WorldNotFound { name: world_name.to_string() }),
+    //     }
+    // }
 
     // pub fn save_snapshot_to_file(&self, snapshot_name: &str, file_path: &str) -> Result<(), CoreError> {
     //     let self_snapshots = self.snapshots.read().unwrap();

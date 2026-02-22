@@ -1,4 +1,4 @@
-use crate::mcp::tools::world;
+use crate::{core::persistence, mcp::tools::world};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -24,21 +24,18 @@ impl VivariumToolServer {
         }
     }
 
-    #[tool(description = "Create a new simulation world with the specified configuration")]
-    fn create_world(
+    #[tool(description = "Load a simulation world project from a project manifest file containing the world configuration")]
+    fn load_project(
         &self,
-        Parameters(config): Parameters<crate::core::world_config::WorldCfg>,
-    ) -> Result<rmcp::Json<world::CreateWorldResponse>, McpError> {
-        self.world_registry.create(config).map_err(|e| {
-            McpError::new(
-                rmcp::model::ErrorCode::INTERNAL_ERROR,
-                format!("Failed to create world: {}", e),
-                None,
-            )
-        })?;
+        Parameters(request): Parameters<world::LoadProjectRequest>,
+    ) -> Result<rmcp::Json<world::LoadProjectResponse>, McpError> {
 
-        Ok(rmcp::Json(world::CreateWorldResponse {
-            message: "World created successfully".to_string(),
+        let project = persistence::loader::load_project_from_manifest_file(&request.manifest_file_path)?;
+        let world = project.instantiate_world()?;
+        self.world_registry.add(project.manifest.name.clone(), world)?;
+
+        Ok(rmcp::Json(world::LoadProjectResponse {
+            message: format!("World loaded successfully from file '{}'", request.manifest_file_path),
         }))
     }
 
@@ -57,24 +54,22 @@ impl VivariumToolServer {
         }))
     }
 
-    #[tool(
-        description = "Copy an existing simulation world to a new world with the specified name"
-    )]
-    fn copy_world(
-        &self,
-        Parameters(request): Parameters<world::CopyWorldRequest>,
-    ) -> Result<rmcp::Json<world::CopyWorldResponse>, McpError> {
-        world::copy_world(&self.world_registry, request)
-    }
+    // #[tool(
+    //     description = "Copy an existing simulation world to a new world with the specified name"
+    // )]
+    // fn copy_world(
+    //     &self,
+    //     Parameters(request): Parameters<world::CopyWorldRequest>,
+    // ) -> Result<rmcp::Json<world::CopyWorldResponse>, McpError> {
+    //     world::copy_world(&self.world_registry, request)
+    // }
 
     #[tool(description = "List all existing simulation worlds")]
     fn list_worlds(&self) -> Result<rmcp::Json<world::ListWorldsResponse>, McpError> {
         world::list_worlds(&self.world_registry)
     }
 
-    #[tool(
-        description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages."
-    )]
+    #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
     fn list_entities(
         &self,
         Parameters(request): Parameters<world::ListEntitiesRequest>,
@@ -82,9 +77,7 @@ impl VivariumToolServer {
         world::list_entities(&self.world_registry, Parameters(request))
     }
 
-    #[tool(
-        description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity."
-    )]
+    #[tool(description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
     fn advance_simulation(
         &self,
         Parameters(request): Parameters<world::RunSimulationRequest>,
@@ -144,39 +137,39 @@ impl VivariumToolServer {
         world::get_world_state(&self.world_registry, request)
     }
 
-    #[tool(
-        description = "Create a snapshot of the current state of the simulation world, including entity states and pending messages."
-    )]
-    pub fn create_world_snapshot(
-        &self,
-        Parameters(request): Parameters<crate::mcp::tools::snapshots::CreateSnapshotRequest>,
-    ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::CreateSnapshotResponse>, McpError> {
-        crate::mcp::tools::snapshots::create_snapshot(&self.world_registry, request)
-    }
+    // #[tool(
+    //     description = "Create a snapshot of the current state of the simulation world, including entity states and pending messages."
+    // )]
+    // pub fn create_world_snapshot(
+    //     &self,
+    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::CreateSnapshotRequest>,
+    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::CreateSnapshotResponse>, McpError> {
+    //     crate::mcp::tools::snapshots::create_snapshot(&self.world_registry, request)
+    // }
 
-    #[tool(description = "Restore a simulation world to a previously created snapshot state.")]
-    pub fn restore_world_snapshot(
-        &self,
-        Parameters(request): Parameters<crate::mcp::tools::snapshots::RestoreSnapshotRequest>,
-    ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::RestoreSnapshotResponse>, McpError> {
-        crate::mcp::tools::snapshots::restore_snapshot(&self.world_registry, request)
-    }
+    // #[tool(description = "Restore a simulation world to a previously created snapshot state.")]
+    // pub fn restore_world_snapshot(
+    //     &self,
+    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::RestoreSnapshotRequest>,
+    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::RestoreSnapshotResponse>, McpError> {
+    //     crate::mcp::tools::snapshots::restore_snapshot(&self.world_registry, request)
+    // }
 
-    #[tool(description = "Save a simulation world snapshot to a YAML file.")]
-    pub fn save_world_snapshot_to_file(
-        &self,
-        Parameters(request): Parameters<crate::mcp::tools::snapshots::SaveSnapshotToFileRequest>,
-    ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::SaveSnapshotToFileResponse>, McpError> {
-        crate::mcp::tools::snapshots::save_snapshot_to_file(&self.world_registry, request)
-    }
+    // #[tool(description = "Save a simulation world snapshot to a YAML file.")]
+    // pub fn save_world_snapshot_to_file(
+    //     &self,
+    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::SaveSnapshotToFileRequest>,
+    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::SaveSnapshotToFileResponse>, McpError> {
+    //     crate::mcp::tools::snapshots::save_snapshot_to_file(&self.world_registry, request)
+    // }
 
-    #[tool(description = "Load a simulation world snapshot from a YAML file.")]
-    pub fn load_world_snapshot_from_file(
-        &self,
-        Parameters(request): Parameters<crate::mcp::tools::snapshots::LoadSnapshotFromFileRequest>,
-    ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::LoadSnapshotFromFileResponse>, McpError> {
-        crate::mcp::tools::snapshots::load_snapshot_from_file(&self.world_registry, request)
-    }
+    // #[tool(description = "Load a simulation world snapshot from a YAML file.")]
+    // pub fn load_world_snapshot_from_file(
+    //     &self,
+    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::LoadSnapshotFromFileRequest>,
+    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::LoadSnapshotFromFileResponse>, McpError> {
+    //     crate::mcp::tools::snapshots::load_snapshot_from_file(&self.world_registry, request)
+    // }
 }
 
 #[tool_handler]

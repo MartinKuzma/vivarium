@@ -92,26 +92,4 @@ impl WorldCfg {
 
         Ok(())
     }
-
-    pub fn from_yaml_file(path: &str) -> Result<Self, CoreError> {
-        let config_data = std::fs::read_to_string(path)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to read world config file: {}", e)))?;
-        
-        let cfg : WorldCfg = serde_yaml::from_str(&config_data)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to parse world config YAML: {}", e)))?;
-
-        cfg.validate()?;
-        Ok(cfg)
-    }
-
-    pub fn from_json_file(path: &str) -> Result<Self, CoreError> {
-        let config_data = std::fs::read_to_string(path)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to read world config file: {}", e)))?;
-        
-        let cfg : WorldCfg = serde_json::from_str(&config_data)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to parse world config JSON: {}", e)))?;
-
-        cfg.validate()?;
-        Ok(cfg)
-    }
 }

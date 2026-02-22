@@ -2,6 +2,19 @@ use crate::core::messaging::JSONObject;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, handler::server::wrapper::Parameters, schemars};
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct LoadProjectRequest {
+    #[schemars(description = "The file path of the project manifest to load the world configuration from")]
+    pub manifest_file_path: String,
+    // TODO: add option to specify snapshot file path to load initial world state from
+}
+
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct LoadProjectResponse {
+    #[schemars(description = "Success message")]
+    pub message: String,
+}
+
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct CreateWorldResponse {
     #[schemars(description = "Success message")]
@@ -223,23 +236,23 @@ pub fn get_entity_state(
     Ok(Json(GetEntityStateResponse { state }))
 }
 
-pub fn copy_world(
-    registry: &crate::core::registry::Registry,
-    request: CopyWorldRequest,
-) -> Result<Json<CopyWorldResponse>, McpError> {
-    registry.copy(
-        &request.source_world_name,
-        &request.target_world_name,
-        request.replace_if_exists,
-    )?;
+// pub fn copy_world(
+//     registry: &crate::core::registry::Registry,
+//     request: CopyWorldRequest,
+// ) -> Result<Json<CopyWorldResponse>, McpError> {
+//     registry.copy(
+//         &request.source_world_name,
+//         &request.target_world_name,
+//         request.replace_if_exists,
+//     )?;
 
-    Ok(Json(CopyWorldResponse {
-        message: format!(
-            "World '{}' copied to '{}' successfully",
-            request.source_world_name, request.target_world_name
-        ),
-    }))
-}
+//     Ok(Json(CopyWorldResponse {
+//         message: format!(
+//             "World '{}' copied to '{}' successfully",
+//             request.source_world_name, request.target_world_name
+//         ),
+//     }))
+// }
 
 pub fn get_world_state(
     registry: &crate::core::registry::Registry,

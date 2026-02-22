@@ -5,7 +5,6 @@ use rmcp::schemars;
 
 #[derive(Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct WorldSnapshot {
-    
     pub configuration: WorldCfg,
     pub simulation_time: u64, // Simulation time at which the snapshot was taken
     pub metrics: MetricsSnapshot,

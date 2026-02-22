@@ -1,0 +1,16 @@
+configuration:
+  name: ecosystem_v2
+  script_library:
+    prey_script:
+      id: prey_script
+      kind: lua
+      script_path: "scripts/prey_script.lua"
+  entities:
+  - id: prey
+    script_id: prey_script
+    initial_state:
+      energy: 10
+      reproduction_threshold: 20
+      energy_gain_from_food: 5
+      energy_loss_per_step: 1
+      reproduction_cost: 10

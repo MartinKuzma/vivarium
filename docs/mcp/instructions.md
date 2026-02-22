@@ -62,7 +62,8 @@ end
     - name: metric name (string)
     - value: metric value (number)
 - `self.destroy(entity_id)` - destroy the entity with the given ID
-- `self.spawn_entity(script_id, initial_state)` - spawn a new entity with the given script and optional initial state
+- `self.spawn_entity(entity_id, script_id, initial_state)` - spawn a new entity with the given script and optional initial state
+    - entity_id: ID of the new entity
     - script_id: ID of the script to use for the new entity
     - initial_state: optional table to set the initial state of the new entity
 

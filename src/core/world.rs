@@ -31,36 +31,35 @@ impl World {
     pub fn new(cfg: &WorldCfg) -> Result<Self, CoreError> {
         cfg.validate()?;
 
-        let mut state = Rc::new(RefCell::new(WorldState {
+        let state = Rc::new(RefCell::new(WorldState {
             entities : HashMap::new(),
         }));
-
         
-        for entity_cfg in &cfg.entities {
-            let mut entity = Entity::new(
-                entity_cfg.id.clone(),
-                entity_cfg.script_id.clone(),
-                cfg.script_library.get(&entity_cfg.script_id).unwrap().clone(),
-                entity_cfg.initial_state.clone(),
-                state.clone(),
-            )
-            .map_err(|e| CoreError::EntityCreation {
-                id: entity_cfg.id.clone(),
-                message: format!("Failed to create entity: {}", e),
-            })?;
+        // for entity_cfg in &cfg.entities {
+        //     let mut entity = Entity::new(
+        //         entity_cfg.id.clone(),
+        //         entity_cfg.script_id.clone(),
+        //         cfg.script_library.get(&entity_cfg.script_id).unwrap().clone(),
+        //         entity_cfg.initial_state.clone(),
+        //         state.clone(),
+        //     )
+        //     .map_err(|e| CoreError::EntityCreation {
+        //         id: entity_cfg.id.clone(),
+        //         message: format!("Failed to create entity: {}", e),
+        //     })?;
 
-            if let Some(state) = &entity_cfg.initial_state {
-                entity
-                    .get_lua_controller_mut()
-                    .set_state(state.clone())
-                    .map_err(|e| CoreError::EntityCreation {
-                        id: entity_cfg.id.clone(),
-                        message: format!("Failed to set initial state for entity: {}", e),
-                    })?;
-            }
+        //     if let Some(state) = &entity_cfg.initial_state {
+        //         entity
+        //             .get_lua_controller_mut()
+        //             .set_state(state.clone())
+        //             .map_err(|e| CoreError::EntityCreation {
+        //                 id: entity_cfg.id.clone(),
+        //                 message: format!("Failed to set initial state for entity: {}", e),
+        //             })?;
+        //     }
 
-            state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
-        }
+        //     state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
+        // }
 
         Ok(World {
             cfg: cfg.clone(),
@@ -71,24 +70,24 @@ impl World {
         })
     }
 
-    pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
-        let mut world = World::new(&snapshot.configuration)?;
+    // pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
+    //     let mut world = World::new(&snapshot.configuration)?;
 
-        world.simulation_time = snapshot.simulation_time;
-        world.metrics = Metrics::new_from_snapshot(&snapshot.metrics);
+    //     world.simulation_time = snapshot.simulation_time;
+    //     world.metrics = Metrics::new_from_snapshot(&snapshot.metrics);
         
-        for message in &snapshot.pending_messages {
-            world.msg_bus.schedule_message(
-                &message.sender,
-                message.receiver.clone(),
-                message.kind.clone(),
-                message.content.clone(),
-                message.receive_step,
-            );
-        }
+    //     for message in &snapshot.pending_messages {
+    //         world.msg_bus.schedule_message(
+    //             &message.sender,
+    //             message.receiver.clone(),
+    //             message.kind.clone(),
+    //             message.content.clone(),
+    //             message.receive_step,
+    //         );
+    //     }
 
-        Ok(world)
-    }
+    //     Ok(world)
+    // }
 
     pub fn remove_entity(&mut self, id: &str) -> Option<RefCell<Entity>> {
         self.get_state_mut().entities.remove(id)
@@ -151,7 +150,6 @@ impl World {
                     if let Some(script_cfg) = self.cfg.script_library.get(&script_id) {
                         let entity = Entity::new(
                             entity_id.clone(),
-                            script_id.clone(),
                             script_cfg.clone(),
                             initial_state,
                             self.state.clone(),
@@ -213,35 +211,35 @@ impl World {
         &self.metrics
     }
 
-    pub fn create_snapshot(&self) -> Result<crate::core::snapshot::WorldSnapshot, CoreError> {
-        let mut world_config = WorldCfg::new(self.cfg.name.clone());
+    // pub fn create_snapshot(&self) -> Result<crate::core::snapshot::WorldSnapshot, CoreError> {
+    //     let mut world_config = WorldCfg::new(self.cfg.name.clone());
 
-        // Copy scripts
-        for (script_id, script_cfg) in &self.cfg.script_library {
-            world_config.add_script(script_id.clone(), script_cfg.script.clone());
-        }
+    //     // Copy scripts
+    //     for (script_id, script_cfg) in &self.cfg.script_library {
+    //         world_config.add_script(script_id.clone(), script_cfg.script.clone());
+    //     }
 
-        // Copy entities and their states
-        for (id, entity_cell) in &self.get_state_ref().entities {
-            let entity = entity_cell.borrow();
-            let lua_controller = entity.get_lua_controller();
-            let state = lua_controller.get_state()?;
+    //     // Copy entities and their states
+    //     for (id, entity_cell) in &self.get_state_ref().entities {
+    //         let entity = entity_cell.borrow();
+    //         let lua_controller = entity.get_lua_controller();
+    //         let state = lua_controller.get_state()?;
 
-            world_config.upsert_entity(id, entity.get_script_id(), Some(state))?;
-        }
+    //         world_config.upsert_entity(id, entity.get_script_id(), Some(state))?;
+    //     }
 
-        let mut messages = Vec::new();
-        for msg in self.msg_bus.get_pending_messages_iter() {
-            messages.push(msg.clone());
-        }
+    //     let mut messages = Vec::new();
+    //     for msg in self.msg_bus.get_pending_messages_iter() {
+    //         messages.push(msg.clone());
+    //     }
 
-        Ok(crate::core::snapshot::WorldSnapshot::new(
-            world_config,
-            self.simulation_time,
-            messages,
-            self.metrics.create_snapshot(),
-        ))
-    }
+    //     Ok(crate::core::snapshot::WorldSnapshot::new(
+    //         world_config,
+    //         self.simulation_time,
+    //         messages,
+    //         self.metrics.create_snapshot(),
+    //     ))
+    // }
 
     pub fn get_entities_count(&self) -> usize {
         self.get_state_ref().entities.len()
@@ -279,7 +277,7 @@ impl WorldState {
 
         self.entities.insert(id, RefCell::new(entity));
         Ok(())
-    } 
+    }
 
 
     pub fn get_entity_state(&self, id: &str) -> Result<JSONObject, CoreError> {

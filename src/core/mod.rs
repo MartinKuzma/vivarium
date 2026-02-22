@@ -7,6 +7,7 @@ pub mod snapshot;
 pub mod errors;
 pub mod registry;
 pub mod world_config;
+pub mod persistence;
 
 mod tests;
 

@@ -56,85 +56,85 @@ pub struct LoadSnapshotFromFileResponse {
     pub message: String,
 }
 
-pub fn create_snapshot(
-    registry: &crate::core::registry::Registry,
-    request: CreateSnapshotRequest,
-) -> Result<Json<CreateSnapshotResponse>, McpError> {
-    let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
-        McpError::new(
-            rmcp::model::ErrorCode::INVALID_PARAMS,
-            format!(
-                "Failed to create snapshot for world '{}': {}",
-                request.world_name, e
-            ),
-            None,
-        )
-    })?;
+// pub fn create_snapshot(
+//     registry: &crate::core::registry::Registry,
+//     request: CreateSnapshotRequest,
+// ) -> Result<Json<CreateSnapshotResponse>, McpError> {
+//     let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
+//         McpError::new(
+//             rmcp::model::ErrorCode::INVALID_PARAMS,
+//             format!(
+//                 "Failed to create snapshot for world '{}': {}",
+//                 request.world_name, e
+//             ),
+//             None,
+//         )
+//     })?;
 
-    Ok(Json(CreateSnapshotResponse { snapshot }))
-}
+//     Ok(Json(CreateSnapshotResponse { snapshot }))
+// }
 
-pub fn restore_snapshot(
-    registry: &crate::core::registry::Registry,
-    request: RestoreSnapshotRequest,
-) -> Result<Json<RestoreSnapshotResponse>, McpError> {
-    registry
-        .restore_snapshot(&request.world_name, request.snapshot)
-        .map_err(|e| {
-            McpError::new(
-                rmcp::model::ErrorCode::INVALID_PARAMS,
-                format!(
-                    "Failed to restore snapshot into world '{}': {}",
-                    request.world_name, e
-                ),
-                None,
-            )
-        })?;
+// pub fn restore_snapshot(
+//     registry: &crate::core::registry::Registry,
+//     request: RestoreSnapshotRequest,
+// ) -> Result<Json<RestoreSnapshotResponse>, McpError> {
+//     registry
+//         .restore_snapshot(&request.world_name, request.snapshot)
+//         .map_err(|e| {
+//             McpError::new(
+//                 rmcp::model::ErrorCode::INVALID_PARAMS,
+//                 format!(
+//                     "Failed to restore snapshot into world '{}': {}",
+//                     request.world_name, e
+//                 ),
+//                 None,
+//             )
+//         })?;
 
-    Ok(Json(RestoreSnapshotResponse {
-        message: format!("Snapshot restored into world '{}'", request.world_name),
-    }))
-}
+//     Ok(Json(RestoreSnapshotResponse {
+//         message: format!("Snapshot restored into world '{}'", request.world_name),
+//     }))
+// }
 
-pub fn save_snapshot_to_file(
-    registry: &crate::core::registry::Registry,
-    request: SaveSnapshotToFileRequest,
-) -> Result<Json<SaveSnapshotToFileResponse>, McpError> {
-    let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
-        McpError::new(
-            rmcp::model::ErrorCode::INVALID_PARAMS,
-            format!(
-                "Failed to create snapshot for world '{}': {}",
-                request.world_name, e
-            ),
-            None,
-        )
-    })?;
+// pub fn save_snapshot_to_file(
+//     registry: &crate::core::registry::Registry,
+//     request: SaveSnapshotToFileRequest,
+// ) -> Result<Json<SaveSnapshotToFileResponse>, McpError> {
+//     let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
+//         McpError::new(
+//             rmcp::model::ErrorCode::INVALID_PARAMS,
+//             format!(
+//                 "Failed to create snapshot for world '{}': {}",
+//                 request.world_name, e
+//             ),
+//             None,
+//         )
+//     })?;
 
-    snapshot.to_yaml_file(&request.file_path).map_err(|e| {
-        McpError::new(
-            rmcp::model::ErrorCode::INTERNAL_ERROR,
-            format!(
-                "Failed to save snapshot to file '{}': {}",
-                request.file_path, e
-            ),
-            None,
-        )
-    })?;
+//     snapshot.to_yaml_file(&request.file_path).map_err(|e| {
+//         McpError::new(
+//             rmcp::model::ErrorCode::INTERNAL_ERROR,
+//             format!(
+//                 "Failed to save snapshot to file '{}': {}",
+//                 request.file_path, e
+//             ),
+//             None,
+//         )
+//     })?;
 
-    Ok(Json(SaveSnapshotToFileResponse {
-        file_path: request.file_path,
-    }))
-}
+//     Ok(Json(SaveSnapshotToFileResponse {
+//         file_path: request.file_path,
+//     }))
+// }
 
-pub fn load_snapshot_from_file(
-    registry: &crate::core::registry::Registry,
-    request: LoadSnapshotFromFileRequest,
-) -> Result<Json<LoadSnapshotFromFileResponse>, McpError> {
+// pub fn load_snapshot_from_file(
+//     registry: &crate::core::registry::Registry,
+//     request: LoadSnapshotFromFileRequest,
+// ) -> Result<Json<LoadSnapshotFromFileResponse>, McpError> {
 
-    let snapshot = WorldSnapshot::from_yaml_file(&request.file_path)?;
-    registry.restore_snapshot(&request.world_name, snapshot)?;
-    Ok(Json(LoadSnapshotFromFileResponse {
-        message: format!("Snapshot loaded from file '{}' into '{}'", request.file_path, request.world_name),
-    }))
-}
+//     let snapshot = WorldSnapshot::from_yaml_file(&request.file_path)?;
+//     registry.restore_snapshot(&request.world_name, snapshot)?;
+//     Ok(Json(LoadSnapshotFromFileResponse {
+//         message: format!("Snapshot loaded from file '{}' into '{}'", request.file_path, request.world_name),
+//     }))
+// }

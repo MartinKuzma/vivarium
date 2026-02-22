@@ -15,7 +15,6 @@ pub struct Entity {
 impl Entity {
     pub fn new(
         id: String,
-        script_id: String,
         script: ScriptCfg,
         initial_state: Option<JSONObject>,
         world_state: Rc<RefCell<WorldState>>,
@@ -35,7 +34,7 @@ impl Entity {
         }
 
         Ok(Entity {
-            script_id: script_id.clone(),
+            script_id: script.id.clone(),
             lua_controller,
         })
     }
