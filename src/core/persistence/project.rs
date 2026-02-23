@@ -1,17 +1,13 @@
-use rmcp::schemars;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use crate::core::world_config::{EntityCfg, ScriptCfg, WorldCfg};
 use crate::core::errors::CoreError;
-use crate::core::persistence::schema::{ProjectManifest, ManifestSnapshot, ManifestMessages};
+use crate::core::persistence::schema::{ManifestSnapshot, ProjectManifest};
+use crate::core::world_config::{EntityCfg, WorldCfg};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct LoadedProject {
     pub project_root: PathBuf,
     pub manifest: ProjectManifest,
     pub world_cfg: WorldCfg,
-    pub snapshot : LoadedSnapshot,
 }
 
 impl LoadedProject {

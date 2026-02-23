@@ -29,8 +29,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::LoadProjectRequest>,
     ) -> Result<rmcp::Json<world::LoadProjectResponse>, McpError> {
-
-        let project = persistence::loader::load_project_from_manifest_file(&request.manifest_file_path)?;
+        let project = persistence::loader::load_project_from_manifest_file(&request.manifest_file_path, persistence::loader::SnapshotSelection::Latest)?;
         let world = project.instantiate_world()?;
         self.world_registry.add(project.manifest.name.clone(), world)?;
 

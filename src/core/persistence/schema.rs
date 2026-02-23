@@ -3,13 +3,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub const PROJECT_SCHEMA_VERSION_V1: &str = "v1";
+pub const DIR_SNAPSHOTS: &str = "snapshots";
+pub const FILE_SNAPSHOT_MANIFEST: &str = "snapshot.yaml";
+pub const FILE_SNAPSHOT_ENTITIES: &str = "entities.yaml";
+pub const FILE_SNAPSHOT_MESSAGES: &str = "messages.yaml";
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ProjectManifest {
     pub schema_version: String,
     pub name: String,
     pub script_library: HashMap<String, ManifestScriptCfg>,
-    pub initial_snapshot_dir: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -38,11 +42,10 @@ pub struct ManifestMessages {
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ManifestMessage {
-    pub id: String,
     pub sender: String,
     pub receiver: String,
     pub kind: String,
-    pub content: serde_json::Value,
+    pub content: serde_json::Map<String, serde_json::Value>,
     pub receive_step: u64,
 }
 
@@ -84,24 +87,6 @@ impl ProjectManifest {
                 ));
             }
         }
-
-        // if self.initial_entities.is_empty() {
-        //     return Err("Project initial_entities cannot be empty".to_string());
-        // }
-
-        // for entity in &self.initial_entities {
-        //     if entity.id.trim().is_empty() {
-        //         return Err("Entity id cannot be empty".to_string());
-        //     }
-
-        //     if !self.script_library.contains_key(&entity.script_id) {
-        //         return Err(format!(
-        //             "Entity '{}' references missing script_id '{}'",
-        //             entity.id, entity.script_id
-        //         ));
-        //     }
-        // }
-
         Ok(())
     }
 }
@@ -126,4 +111,3 @@ impl ManifestScriptCfg {
         Ok(())
     }
 }
-

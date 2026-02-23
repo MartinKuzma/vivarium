@@ -23,6 +23,8 @@ pub struct WorldCfg {
     pub script_library: HashMap<String, ScriptCfg>,
     #[schemars(description = "The entities to initialize in the new world")]
     pub entities: Vec<EntityCfg>,
+    pub pending_messages: Vec<crate::core::messaging::Message>,
+    pub simulation_time: u64,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -37,11 +39,13 @@ pub struct ScriptCfg {
 }
 
 impl WorldCfg {
-    pub fn new(name: String) -> Self {
+    pub fn empty(name: String) -> Self {
         WorldCfg {
             name,
             script_library: HashMap::new(),
             entities: Vec::new(),
+            pending_messages: Vec::new(),
+            simulation_time: 0,
         }
     }
 

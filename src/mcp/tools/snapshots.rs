@@ -1,4 +1,3 @@
-use crate::core::snapshot::WorldSnapshot;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, schemars};
 
@@ -10,8 +9,8 @@ pub struct CreateSnapshotRequest {
 
 #[derive(serde::Serialize, schemars::JsonSchema)]
 pub struct CreateSnapshotResponse {
-    #[schemars(description = "The snapshot data")]
-    pub snapshot: WorldSnapshot,
+    #[schemars(description = "The success message confirming snapshot creation")]
+    pub success_message: String,
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
@@ -38,8 +37,8 @@ pub struct RestoreSnapshotResponse {
 pub struct RestoreSnapshotRequest {
     #[schemars(description = "The name of the simulation world to restore the snapshot into")]
     pub world_name: String,
-    #[schemars(description = "The snapshot data")]
-    pub snapshot: WorldSnapshot,
+    #[schemars(description = "The success message confirming snapshot restoration")]
+    pub success_message: String,
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]

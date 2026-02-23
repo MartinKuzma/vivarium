@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use crate::core::world::World;
-use crate::core::snapshot::WorldSnapshot;
 use std::sync::{RwLock, Arc};
 use crate::core::world_config::WorldCfg;
 use crate::core::errors::CoreError;

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use crate::core::snapshot::MetricsSnapshot;
 use rmcp::{
     schemars
 };
@@ -38,17 +37,17 @@ impl Metrics {
         }
     }
 
-    pub fn new_from_snapshot(snapshot: &MetricsSnapshot) -> Self {
-        let mut metrics = HashMap::new();
-        for (name, values) in &snapshot.metrics {
-            let metric_values: Vec<Metric> = values.iter().map(|(timestamp, value)| Metric { timestamp: *timestamp, value: *value }).collect();
-            metrics.insert(name.clone(), metric_values);
-        }
+    // pub fn new_from_snapshot(snapshot: &MetricsSnapshot) -> Self {
+    //     let mut metrics = HashMap::new();
+    //     for (name, values) in &snapshot.metrics {
+    //         let metric_values: Vec<Metric> = values.iter().map(|(timestamp, value)| Metric { timestamp: *timestamp, value: *value }).collect();
+    //         metrics.insert(name.clone(), metric_values);
+    //     }
 
-        Metrics {
-            metrics,
-        }
-    }
+    //     Metrics {
+    //         metrics,
+    //     }
+    // }
 
     pub fn record_metric(&mut self, current_time: u64, name : &str, value: f64) {
         match self.metrics.get_mut(name) {
@@ -97,15 +96,15 @@ impl Metrics {
         })
     }
 
-    pub fn create_snapshot(&self) -> MetricsSnapshot {
-        let mut snapshot = HashMap::new();
-        for (name, metrics) in &self.metrics {
-            let values: Vec<(u64, f64)> = metrics.iter().map(|m| (m.timestamp, m.value)).collect();
-            snapshot.insert(name.clone(), values);
-        }
+    // pub fn create_snapshot(&self) -> MetricsSnapshot {
+    //     let mut snapshot = HashMap::new();
+    //     for (name, metrics) in &self.metrics {
+    //         let values: Vec<(u64, f64)> = metrics.iter().map(|m| (m.timestamp, m.value)).collect();
+    //         snapshot.insert(name.clone(), values);
+    //     }
 
-        MetricsSnapshot { metrics: snapshot}
-    }
+    //     MetricsSnapshot { metrics: snapshot}
+    // }
 
     pub fn list_metric_names(&self) -> Vec<String> {
         self.metrics.keys().cloned().collect()

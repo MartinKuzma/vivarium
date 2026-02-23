@@ -1,9 +1,9 @@
 use crate::core::Entity;
 use crate::core::errors::CoreError;
+use crate::core::messaging::Command;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
 use crate::core::world_config::WorldCfg;
-use crate::core::messaging::Command;
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
@@ -32,62 +32,56 @@ impl World {
         cfg.validate()?;
 
         let state = Rc::new(RefCell::new(WorldState {
-            entities : HashMap::new(),
+            entities: HashMap::new(),
         }));
-        
-        // for entity_cfg in &cfg.entities {
-        //     let mut entity = Entity::new(
-        //         entity_cfg.id.clone(),
-        //         entity_cfg.script_id.clone(),
-        //         cfg.script_library.get(&entity_cfg.script_id).unwrap().clone(),
-        //         entity_cfg.initial_state.clone(),
-        //         state.clone(),
-        //     )
-        //     .map_err(|e| CoreError::EntityCreation {
-        //         id: entity_cfg.id.clone(),
-        //         message: format!("Failed to create entity: {}", e),
-        //     })?;
 
-        //     if let Some(state) = &entity_cfg.initial_state {
-        //         entity
-        //             .get_lua_controller_mut()
-        //             .set_state(state.clone())
-        //             .map_err(|e| CoreError::EntityCreation {
-        //                 id: entity_cfg.id.clone(),
-        //                 message: format!("Failed to set initial state for entity: {}", e),
-        //             })?;
-        //     }
+        for entity_cfg in &cfg.entities {
+            let mut entity = Entity::new(
+                entity_cfg.id.clone(),
+                cfg.script_library.get(&entity_cfg.script_id).unwrap().clone(),
+                entity_cfg.initial_state.clone(),
+                state.clone(),
+            )
+            .map_err(|e| CoreError::EntityCreation {
+                id: entity_cfg.id.clone(),
+                message: format!("Failed to create entity: {}", e),
+            })?;
 
-        //     state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
-        // }
+            if let Some(state) = &entity_cfg.initial_state {
+                entity
+                    .get_lua_controller_mut()
+                    .set_state(state.clone())
+                    .map_err(|e| CoreError::EntityCreation {
+                        id: entity_cfg.id.clone(),
+                        message: format!("Failed to set initial state for entity: {}", e),
+                    })?;
+            }
 
-        Ok(World {
+            state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
+        }
+
+        //TODO: Metrics should be initialized from configuration as well
+
+        let mut world = World {
             cfg: cfg.clone(),
-            simulation_time: 0,
+            simulation_time: cfg.simulation_time,
             msg_bus: MessageBus::new(),
             state: state,
             metrics: Metrics::new(),
-        })
+        };
+
+        for message in &cfg.pending_messages {
+            world.msg_bus.schedule_message(
+                &message.sender,
+                message.receiver.clone(),
+                message.kind.clone(),
+                message.content.clone(),
+                message.receive_step,
+            );
+        }
+
+        Ok(world)
     }
-
-    // pub fn new_from_snapshot(snapshot: crate::core::snapshot::WorldSnapshot) -> Result<Self, CoreError> {
-    //     let mut world = World::new(&snapshot.configuration)?;
-
-    //     world.simulation_time = snapshot.simulation_time;
-    //     world.metrics = Metrics::new_from_snapshot(&snapshot.metrics);
-        
-    //     for message in &snapshot.pending_messages {
-    //         world.msg_bus.schedule_message(
-    //             &message.sender,
-    //             message.receiver.clone(),
-    //             message.kind.clone(),
-    //             message.content.clone(),
-    //             message.receive_step,
-    //         );
-    //     }
-
-    //     Ok(world)
-    // }
 
     pub fn remove_entity(&mut self, id: &str) -> Option<RefCell<Entity>> {
         self.get_state_mut().entities.remove(id)
@@ -145,7 +139,11 @@ impl World {
                 Command::RecordMetric { name, value } => {
                     self.metrics.record_metric(self.simulation_time, &name, value);
                 }
-                Command::SpawnEntity { script_id, entity_id, initial_state } => {
+                Command::SpawnEntity {
+                    script_id,
+                    entity_id,
+                    initial_state,
+                } => {
                     // TODO: return error if entity with same ID exists or script is not found
                     if let Some(script_cfg) = self.cfg.script_library.get(&script_id) {
                         let entity = Entity::new(
@@ -246,7 +244,7 @@ impl World {
     }
 
     pub fn get_simulation_time(&self) -> u64 {
-        self.simulation_time   
+        self.simulation_time
     }
 
     pub fn get_pending_messages_count(&self) -> usize {
@@ -270,21 +268,22 @@ impl WorldState {
             .collect()
     }
 
-    pub fn add_entity(&mut self, id : String, entity: Entity) -> Result<(), CoreError> {
+    pub fn add_entity(&mut self, id: String, entity: Entity) -> Result<(), CoreError> {
         if self.entities.len() >= MAX_ENTITIES_PER_WORLD {
-            return Err(CoreError::WorldCapacityExceeded{ capacity: MAX_ENTITIES_PER_WORLD });
+            return Err(CoreError::WorldCapacityExceeded {
+                capacity: MAX_ENTITIES_PER_WORLD,
+            });
         }
 
         self.entities.insert(id, RefCell::new(entity));
         Ok(())
     }
 
-
     pub fn get_entity_state(&self, id: &str) -> Result<JSONObject, CoreError> {
         match self.entities.get(id) {
             Some(entity) => match entity.borrow().get_lua_controller().get_state() {
                 Ok(state) => Ok(state),
-                Err(e) => Err(CoreError::ScriptState{
+                Err(e) => Err(CoreError::ScriptState {
                     message: format!("Failed to get state for entity '{}': {}", id, e),
                 }),
             },
