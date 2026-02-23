@@ -9,6 +9,7 @@ use crate::core::{
 };
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub enum SnapshotSelection {
 	Name(String), // Select a specific snapshot by name (directory name under snapshots/)
 	Latest, // Automatically select the latest snapshot based on creation time of snapshot directories under snapshots/
