@@ -1,4 +1,5 @@
-use crate::core::persistence::loader::{self, SnapshotSelection};
+#[allow(unused_imports)]
+use crate::core::persistence::loader;
 
 #[test]
 fn test_load_project_from_manifest_file_with_latest_snapshot() {
@@ -9,7 +10,7 @@ fn test_load_project_from_manifest_file_with_latest_snapshot() {
 
     let project = loader::load_project_from_manifest_file(
         manifest_path.to_str().unwrap(),
-        SnapshotSelection::Latest,
+        loader::SnapshotSelection::Latest,
     )
     .expect("expected example project manifest and latest snapshot to load");
 

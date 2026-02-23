@@ -1,7 +1,4 @@
-#[path = "../cli/mod.rs"]
-mod cli;
-#[path = "../core/mod.rs"]
-mod core;
+use vivarium::cli;
 
 fn main() {
     if let Err(err) = cli::run() {

@@ -23,7 +23,7 @@
             "cargo": {
                 "args": [
                     "test",
-                    "--bin=vivarium"
+                    "--bin=vivarium-mcp"
                 ]
             }
         }
