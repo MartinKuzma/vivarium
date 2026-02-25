@@ -4,7 +4,6 @@ mod scripting;
 pub mod messaging;
 pub mod metrics;
 pub mod errors;
-pub mod project_registry;
 pub mod world_config;
 pub mod persistence;
 

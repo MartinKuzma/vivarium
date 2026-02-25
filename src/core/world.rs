@@ -3,7 +3,6 @@ use crate::core::errors::CoreError;
 use crate::core::messaging::Command;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
-use crate::core::persistence::project::{ProjectContext, Snapshot};
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};

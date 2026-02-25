@@ -1,7 +1,7 @@
 use crate::core::messaging::JSONObject;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, handler::server::wrapper::Parameters, schemars};
-use crate::core::project_registry::Registry;
+use crate::mcp::project_store::ProjectStore;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct LoadProjectRequest {
@@ -128,7 +128,7 @@ pub struct ListEntitiesResponse {
 }
 
 pub fn list_entities(
-    registry: &Registry,
+    registry: &ProjectStore,
     Parameters(request): Parameters<ListEntitiesRequest>,
 ) -> Result<Json<ListEntitiesResponse>, McpError> {
     let mut resp = ListEntitiesResponse {
@@ -172,7 +172,7 @@ pub fn list_entities(
 }
 
 pub fn advance_simulation(
-    registry: &Registry,
+    registry: &ProjectStore,
     Parameters(request): Parameters<RunSimulationRequest>,
 ) -> Result<Json<AdvanceSimulationResponse>, McpError> {
     let mut delivered_messages: Vec<String> = Vec::new();
@@ -207,16 +207,16 @@ pub fn advance_simulation(
     }))
 }
 
-pub fn list_worlds(registry: &Registry) -> Result<Json<ListWorldsResponse>, McpError> {
+pub fn list_worlds(registry: &ProjectStore) -> Result<Json<ListWorldsResponse>, McpError> {
     let worlds = registry.list();
     Ok(Json(ListWorldsResponse { worlds }))
 }
 
 pub fn set_entity_state(
-    registry: &Registry,
+    store: &ProjectStore,
     request: SetEntityStateRequest,
 ) -> Result<Json<SetEntityStateResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.world_name)?;
 
     world.write().unwrap().set_entity_state(&request.entity_id, request.state)?;
 
@@ -226,11 +226,11 @@ pub fn set_entity_state(
 }
 
 pub fn get_entity_state(
-    registry: &Registry,
+    store: &ProjectStore,
     world_name: String,
     entity_id: String,
 ) -> Result<Json<GetEntityStateResponse>, McpError> {
-    let world = registry.get(&world_name)?;
+    let world = store.get(&world_name)?;
 
     let state = world.read().unwrap().get_entity_state(&entity_id)?;
 
@@ -256,10 +256,10 @@ pub fn get_entity_state(
 // }
 
 pub fn get_world_state(
-    registry: &Registry,
+    store: &ProjectStore,
     request: GetWorldStateRequest,
 ) -> Result<Json<GetWorldStateResponse>, McpError> {
-    let world_rc = registry.get(&request.world_name)?;
+    let world_rc = store.get(&request.world_name)?;
 
     let world = world_rc.read().unwrap();
     

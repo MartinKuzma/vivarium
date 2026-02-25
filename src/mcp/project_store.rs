@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-use crate::core::world::World;
+use crate::core::World;
 use std::sync::{RwLock, Arc};
 use crate::core::errors::CoreError;
 
 // Registry for managing multiple simulations.
-pub struct Registry {
+pub struct ProjectStore {
     worlds: RwLock<HashMap<String, Arc<RwLock<World>>>>,
 }
 
-impl Registry {
+impl ProjectStore {
     pub fn new() -> Self {
-        Registry {
+        ProjectStore {
             worlds: RwLock::new(HashMap::new()),
         }
     }

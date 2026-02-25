@@ -1,7 +1,7 @@
 use rmcp::Json;
 use rmcp::ErrorData as McpError;
 use rmcp::schemars;
-use crate::core::project_registry::Registry;
+use crate::mcp::project_store::ProjectStore;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ListMetricsRequest {
@@ -30,10 +30,10 @@ pub struct GetMetricsResponse {
 }
 
 pub fn list_metrics(
-    registry: &Registry,
+    store: &ProjectStore,
     request: ListMetricsRequest,
 ) -> Result<Json<ListMetricsResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.world_name)?;
 
     let world_guard = world.read().unwrap();
     let metrics = world_guard.get_metrics_ref().list_metric_names();
@@ -42,11 +42,11 @@ pub fn list_metrics(
 }
 
 pub fn get_metric(
-    registry: &Registry,
+    store: &ProjectStore,
     world_name: String,
     metric_name: String,
 ) -> Result<Json<crate::core::metrics::MetricStats>, McpError> {
-    let world = registry.get(&world_name)?;
+    let world = store.get(&world_name)?;
 
     let world_guard = world.read().unwrap();
     let metric_stats = world_guard.get_metrics_ref().compute_metric_stats(&metric_name)
@@ -60,10 +60,10 @@ pub fn get_metric(
 }
 
 pub fn get_metrics(
-    registry: &Registry,
+    store: &ProjectStore,
     request: GetMetricsRequest,
 ) -> Result<Json<GetMetricsResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.world_name)?;
 
     let world_guard = world.read().unwrap();
     let mut metrics = Vec::new();

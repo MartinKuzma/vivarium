@@ -1,4 +1,4 @@
-use crate::{core::persistence, mcp::tools::world};
+use crate::{core::persistence, mcp::tools::world, mcp::project_store::ProjectStore};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -10,17 +10,17 @@ const SERVER_INSTRUCTIONS: &str = include_str!("../../docs/mcp/instructions.md")
 
 pub struct VivariumToolServer {
     pub tool_router: ToolRouter<Self>,
-    world_registry: crate::core::project_registry::Registry,
+    store: crate::mcp::project_store::ProjectStore,
 }
 
 #[tool_router]
 impl VivariumToolServer {
-    pub fn new(world_registry: crate::core::project_registry::Registry) -> Self {
+    pub fn new(store: ProjectStore) -> Self {
         let tool_router = Self::tool_router();
 
         VivariumToolServer {
             tool_router,
-            world_registry,
+            store,
         }
     }
 
@@ -42,7 +42,7 @@ impl VivariumToolServer {
 
     #[tool(description = "Delete an existing simulation world by name")]
     fn delete_world(&self, Parameters(name): Parameters<String>) -> Result<rmcp::Json<world::DeleteWorldResponse>, McpError> {
-        self.world_registry.delete(&name).map_err(|e| {
+        self.store.delete(&name).map_err(|e| {
             McpError::new(
                 rmcp::model::ErrorCode::INTERNAL_ERROR,
                 format!("Failed to delete world '{}': {}", name, e),
@@ -67,7 +67,7 @@ impl VivariumToolServer {
 
     #[tool(description = "List all existing simulation worlds")]
     fn list_worlds(&self) -> Result<rmcp::Json<world::ListWorldsResponse>, McpError> {
-        world::list_worlds(&self.world_registry)
+        world::list_worlds(&self.store)
     }
 
     #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
@@ -75,7 +75,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::ListEntitiesRequest>,
     ) -> Result<rmcp::Json<world::ListEntitiesResponse>, McpError> {
-        world::list_entities(&self.world_registry, Parameters(request))
+        world::list_entities(&self.store, Parameters(request))
     }
 
     #[tool(description = "Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. Use step_duration to control simulation time granularity.")]
@@ -83,7 +83,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::RunSimulationRequest>,
     ) -> Result<rmcp::Json<world::AdvanceSimulationResponse>, McpError> {
-        world::advance_simulation(&self.world_registry, Parameters(request))
+        world::advance_simulation(&self.store, Parameters(request))
     }
 
     #[tool(description = "List the names of all available metrics in the simulation world.")]
@@ -91,7 +91,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<crate::mcp::tools::metrics::ListMetricsRequest>,
     ) -> Result<rmcp::Json<crate::mcp::tools::metrics::ListMetricsResponse>, McpError> {
-        crate::mcp::tools::metrics::list_metrics(&self.world_registry, request)
+        crate::mcp::tools::metrics::list_metrics(&self.store, request)
     }
 
     #[tool(description = "Get the current values of a specific metric by name.")]
@@ -99,7 +99,7 @@ impl VivariumToolServer {
         &self,
         Parameters((world_name, metric_name)): Parameters<(String, String)>,
     ) -> Result<rmcp::Json<crate::core::metrics::MetricStats>, McpError> {
-        crate::mcp::tools::metrics::get_metric(&self.world_registry, world_name, metric_name)
+        crate::mcp::tools::metrics::get_metric(&self.store, world_name, metric_name)
     }
 
     #[tool(description = "Get the current values of multiple metrics by their names.")]
@@ -107,7 +107,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<crate::mcp::tools::metrics::GetMetricsRequest>,
     ) -> Result<rmcp::Json<crate::mcp::tools::metrics::GetMetricsResponse>, McpError> {
-        crate::mcp::tools::metrics::get_metrics(&self.world_registry, request)
+        crate::mcp::tools::metrics::get_metrics(&self.store, request)
     }
 
     #[tool(
@@ -117,7 +117,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::SetEntityStateRequest>,
     ) -> Result<rmcp::Json<world::SetEntityStateResponse>, McpError> {
-        world::set_entity_state(&self.world_registry, request)
+        world::set_entity_state(&self.store, request)
     }
 
     #[tool(description = "Get the current state of a specific entity by its ID.")]
@@ -125,7 +125,7 @@ impl VivariumToolServer {
         &self,
         Parameters((world_name, entity_id)): Parameters<(String, String)>,
     ) -> Result<rmcp::Json<world::GetEntityStateResponse>, McpError> {
-        world::get_entity_state(&self.world_registry, world_name, entity_id)
+        world::get_entity_state(&self.store, world_name, entity_id)
     }
 
     #[tool(
@@ -135,7 +135,7 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::GetWorldStateRequest>,
     ) -> Result<rmcp::Json<world::GetWorldStateResponse>, McpError> {
-        world::get_world_state(&self.world_registry, request)
+        world::get_world_state(&self.store, request)
     }
 
     // #[tool(
@@ -145,7 +145,7 @@ impl VivariumToolServer {
     //     &self,
     //     Parameters(request): Parameters<crate::mcp::tools::snapshots::CreateSnapshotRequest>,
     // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::CreateSnapshotResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::create_snapshot(&self.world_registry, request)
+    //     crate::mcp::tools::snapshots::create_snapshot(&self.store, request)
     // }
 
     // #[tool(description = "Restore a simulation world to a previously created snapshot state.")]
@@ -153,7 +153,7 @@ impl VivariumToolServer {
     //     &self,
     //     Parameters(request): Parameters<crate::mcp::tools::snapshots::RestoreSnapshotRequest>,
     // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::RestoreSnapshotResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::restore_snapshot(&self.world_registry, request)
+    //     crate::mcp::tools::snapshots::restore_snapshot(&self.store, request)
     // }
 
     // #[tool(description = "Save a simulation world snapshot to a YAML file.")]
@@ -161,7 +161,7 @@ impl VivariumToolServer {
     //     &self,
     //     Parameters(request): Parameters<crate::mcp::tools::snapshots::SaveSnapshotToFileRequest>,
     // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::SaveSnapshotToFileResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::save_snapshot_to_file(&self.world_registry, request)
+    //     crate::mcp::tools::snapshots::save_snapshot_to_file(&self.store, request)
     // }
 
     // #[tool(description = "Load a simulation world snapshot from a YAML file.")]
@@ -169,7 +169,7 @@ impl VivariumToolServer {
     //     &self,
     //     Parameters(request): Parameters<crate::mcp::tools::snapshots::LoadSnapshotFromFileRequest>,
     // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::LoadSnapshotFromFileResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::load_snapshot_from_file(&self.world_registry, request)
+    //     crate::mcp::tools::snapshots::load_snapshot_from_file(&self.store, request)
     // }
 }
 
