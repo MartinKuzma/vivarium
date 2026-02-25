@@ -10,12 +10,12 @@ const SERVER_INSTRUCTIONS: &str = include_str!("../../docs/mcp/instructions.md")
 
 pub struct VivariumToolServer {
     pub tool_router: ToolRouter<Self>,
-    world_registry: crate::core::registry::Registry,
+    world_registry: crate::core::project_registry::Registry,
 }
 
 #[tool_router]
 impl VivariumToolServer {
-    pub fn new(world_registry: crate::core::registry::Registry) -> Self {
+    pub fn new(world_registry: crate::core::project_registry::Registry) -> Self {
         let tool_router = Self::tool_router();
 
         VivariumToolServer {
@@ -29,9 +29,11 @@ impl VivariumToolServer {
         &self,
         Parameters(request): Parameters<world::LoadProjectRequest>,
     ) -> Result<rmcp::Json<world::LoadProjectResponse>, McpError> {
-        let project = persistence::loader::load_project_from_manifest_file(&request.manifest_file_path, persistence::loader::SnapshotSelection::Latest)?;
-        let world = project.instantiate_world()?;
-        self.world_registry.add(project.manifest.name.clone(), world)?;
+        let project_ctx = persistence::loader::load_project_from_file(&request.manifest_file_path)?;
+
+        //TODO: fix
+        //let world = project_ctx.instantiate_world()?;
+        //self.world_registry.add(project_ctx.manifest.name.clone(), world)?;
 
         Ok(rmcp::Json(world::LoadProjectResponse {
             message: format!("World loaded successfully from file '{}'", request.manifest_file_path),

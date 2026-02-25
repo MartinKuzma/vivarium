@@ -8,7 +8,6 @@ pub const FILE_SNAPSHOT_MANIFEST: &str = "snapshot.yaml";
 pub const FILE_SNAPSHOT_ENTITIES: &str = "entities.yaml";
 pub const FILE_SNAPSHOT_MESSAGES: &str = "messages.yaml";
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[schemars(description = "Project manifest file loaded from world.yaml")]
 pub struct ProjectManifest {

@@ -1,6 +1,7 @@
 use crate::core::messaging::JSONObject;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, handler::server::wrapper::Parameters, schemars};
+use crate::core::project_registry::Registry;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct LoadProjectRequest {
@@ -127,7 +128,7 @@ pub struct ListEntitiesResponse {
 }
 
 pub fn list_entities(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     Parameters(request): Parameters<ListEntitiesRequest>,
 ) -> Result<Json<ListEntitiesResponse>, McpError> {
     let mut resp = ListEntitiesResponse {
@@ -171,7 +172,7 @@ pub fn list_entities(
 }
 
 pub fn advance_simulation(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     Parameters(request): Parameters<RunSimulationRequest>,
 ) -> Result<Json<AdvanceSimulationResponse>, McpError> {
     let mut delivered_messages: Vec<String> = Vec::new();
@@ -206,13 +207,13 @@ pub fn advance_simulation(
     }))
 }
 
-pub fn list_worlds(registry: &crate::core::registry::Registry) -> Result<Json<ListWorldsResponse>, McpError> {
+pub fn list_worlds(registry: &Registry) -> Result<Json<ListWorldsResponse>, McpError> {
     let worlds = registry.list();
     Ok(Json(ListWorldsResponse { worlds }))
 }
 
 pub fn set_entity_state(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     request: SetEntityStateRequest,
 ) -> Result<Json<SetEntityStateResponse>, McpError> {
     let world = registry.get(&request.world_name)?;
@@ -225,7 +226,7 @@ pub fn set_entity_state(
 }
 
 pub fn get_entity_state(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     world_name: String,
     entity_id: String,
 ) -> Result<Json<GetEntityStateResponse>, McpError> {
@@ -237,7 +238,7 @@ pub fn get_entity_state(
 }
 
 // pub fn copy_world(
-//     registry: &crate::core::registry::Registry,
+//     registry: &Registry,
 //     request: CopyWorldRequest,
 // ) -> Result<Json<CopyWorldResponse>, McpError> {
 //     registry.copy(
@@ -255,7 +256,7 @@ pub fn get_entity_state(
 // }
 
 pub fn get_world_state(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     request: GetWorldStateRequest,
 ) -> Result<Json<GetWorldStateResponse>, McpError> {
     let world_rc = registry.get(&request.world_name)?;

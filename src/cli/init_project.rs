@@ -17,7 +17,6 @@ pub fn init_project(target_dir: &Path) -> Result<(), String> {
     let snapshot_dir = target_dir.join(DIR_SNAPSHOTS).join(INITIAL_SNAPSHOT_ID);
 
     fs::create_dir_all(&scripts_dir).map_err(|e| format!("Failed to create scripts directory '{}': {}", scripts_dir.display(), e))?;
-
     fs::create_dir_all(&snapshot_dir).map_err(|e| format!("Failed to create snapshot directory '{}': {}", snapshot_dir.display(), e))?;
 
     let project_name = target_dir

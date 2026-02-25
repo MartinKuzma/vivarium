@@ -1,6 +1,7 @@
 use rmcp::Json;
 use rmcp::ErrorData as McpError;
 use rmcp::schemars;
+use crate::core::project_registry::Registry;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ListMetricsRequest {
@@ -29,7 +30,7 @@ pub struct GetMetricsResponse {
 }
 
 pub fn list_metrics(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     request: ListMetricsRequest,
 ) -> Result<Json<ListMetricsResponse>, McpError> {
     let world = registry.get(&request.world_name)?;
@@ -41,7 +42,7 @@ pub fn list_metrics(
 }
 
 pub fn get_metric(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     world_name: String,
     metric_name: String,
 ) -> Result<Json<crate::core::metrics::MetricStats>, McpError> {
@@ -59,7 +60,7 @@ pub fn get_metric(
 }
 
 pub fn get_metrics(
-    registry: &crate::core::registry::Registry,
+    registry: &Registry,
     request: GetMetricsRequest,
 ) -> Result<Json<GetMetricsResponse>, McpError> {
     let world = registry.get(&request.world_name)?;

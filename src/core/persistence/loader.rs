@@ -2,12 +2,13 @@ use super::schema::{
     ManifestEntities, ManifestMessages, ManifestSnapshot, ProjectManifest, DIR_SNAPSHOTS,
     FILE_SNAPSHOT_ENTITIES, FILE_SNAPSHOT_MANIFEST, FILE_SNAPSHOT_MESSAGES,
 };
-use crate::core::persistence::project::{LoadedProject, LoadedSnapshot};
+use crate::core::persistence::project::{ProjectContext, Snapshot};
 use crate::core::{
     errors::CoreError,
-    world_config::{EntityCfg, ScriptCfg, WorldCfg},
+    world_config::{EntityCfg, ScriptCfg},
 };
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum SnapshotSelection {
@@ -15,7 +16,19 @@ pub enum SnapshotSelection {
 	Latest, // Automatically select the latest snapshot based on creation time of snapshot directories under snapshots/
 }
 
-pub fn load_project_from_manifest_file(manifest_path: &str, snapshot_selection: SnapshotSelection) -> Result<LoadedProject, CoreError> {
+impl FromStr for SnapshotSelection {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.eq_ignore_ascii_case("latest") {
+            Ok(SnapshotSelection::Latest)
+        } else {
+            Ok(SnapshotSelection::Name(value.to_string()))
+        }
+    }
+}
+
+pub fn load_project_from_file(manifest_path: &str) -> Result<ProjectContext, CoreError> {
     let manifest_path = PathBuf::from(manifest_path);
     let project_root = manifest_path.parent().ok_or_else(|| {
         CoreError::DeserializationError(format!(
@@ -25,28 +38,7 @@ pub fn load_project_from_manifest_file(manifest_path: &str, snapshot_selection: 
     })?;
 
     let manifest = load_manifest_from_yaml_file(&manifest_path)?;
-    let snapshot = load_snapshot(project_root, snapshot_selection)?;
-    let world_cfg = build_world_cfg_from_manifest(&manifest, project_root, snapshot)?;
 
-    Ok(LoadedProject {
-        project_root: project_root.to_path_buf(),
-        manifest,
-        world_cfg,
-    })
-}
-
-fn load_manifest_from_yaml_file(path: &Path) -> Result<ProjectManifest, CoreError> {
-    let manifest: ProjectManifest = load_yaml_file(path)?;
-
-    manifest.validate().map_err(CoreError::DeserializationError)?;
-    Ok(manifest)
-}
-
-fn build_world_cfg_from_manifest(
-    manifest: &ProjectManifest,
-    project_root: &Path,
-    snapshot: LoadedSnapshot,
-) -> Result<WorldCfg, CoreError> {
     let mut script_library = std::collections::HashMap::new();
 
     for (script_key, script_cfg) in &manifest.script_library {
@@ -62,16 +54,19 @@ fn build_world_cfg_from_manifest(
         );
     }
 
-    let cfg = WorldCfg {
-        name: manifest.name.clone(),
-        script_library,
-        entities: snapshot.entities,
-        pending_messages: snapshot.pending_messages,
-        simulation_time: snapshot.meta.simulation_time,
-    };
 
-    cfg.validate()?;
-    Ok(cfg)
+    Ok(ProjectContext {
+        script_library,
+        project_root: project_root.to_path_buf(),
+        manifest,
+    })
+}
+
+fn load_manifest_from_yaml_file(path: &Path) -> Result<ProjectManifest, CoreError> {
+    let manifest: ProjectManifest = load_yaml_file(path)?;
+
+    manifest.validate().map_err(CoreError::DeserializationError)?;
+    Ok(manifest)
 }
 
 fn load_script_file(script_path: &str, project_root: &Path) -> Result<String, CoreError> {
@@ -86,8 +81,8 @@ fn load_script_file(script_path: &str, project_root: &Path) -> Result<String, Co
     });
 }
 
-fn load_snapshot(project_root: &Path, snapshot_selection: SnapshotSelection) -> Result<LoadedSnapshot, CoreError> {
-    let full_path: PathBuf = project_root.join(DIR_SNAPSHOTS);
+pub fn load_snapshot(project_ctx: &ProjectContext, snapshot_selection: SnapshotSelection) -> Result<Snapshot, CoreError> {
+    let full_path: PathBuf = project_ctx.project_root.join(DIR_SNAPSHOTS);
 
 	let snapshot_dir = match snapshot_selection {
 		SnapshotSelection::Name(name) => full_path.join(name),
@@ -109,8 +104,9 @@ fn load_snapshot(project_root: &Path, snapshot_selection: SnapshotSelection) -> 
     let entities = load_entities(&entities_path)?;
     let pending_messages = load_messages(&messages_path)?;
 
-    Ok(LoadedSnapshot {
-        meta: manifest_snapshot,
+    Ok(Snapshot {
+        simulation_time: manifest_snapshot.simulation_time.clone(),
+        meta : manifest_snapshot,
         entities: entities,
         pending_messages: pending_messages,
 		//TODO: Load metrics from snapshot as well

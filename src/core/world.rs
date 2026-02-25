@@ -3,7 +3,7 @@ use crate::core::errors::CoreError;
 use crate::core::messaging::Command;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
 use crate::core::metrics::Metrics;
-use crate::core::world_config::WorldCfg;
+use crate::core::persistence::project::{ProjectContext, Snapshot};
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
@@ -12,14 +12,14 @@ const MAX_ENTITIES_PER_WORLD: usize = 10000;
 
 // Represents a simulation world containing entities, message bus, and metrics.
 pub struct World {
-    cfg: WorldCfg,
+    entity_scripts_registry: HashMap<String, crate::core::world_config::ScriptCfg>,
     msg_bus: MessageBus,
-    state: Rc<RefCell<WorldState>>,
+    state: Rc<RefCell<State>>,
     metrics: Metrics,
     simulation_time: u64, //TODO: Replace with some shared clock
 }
 
-pub struct WorldState {
+pub struct State {
     entities: HashMap<String, RefCell<Entity>>,
 }
 
@@ -27,18 +27,24 @@ pub struct WorldUpdateResult {
     pub delivered_messages: Vec<Message>,
 }
 
-impl World {
-    pub fn new(cfg: &WorldCfg) -> Result<Self, CoreError> {
-        cfg.validate()?;
+pub struct WorldSnapshotData {
+    pub name: String,
+    pub script_library: HashMap<String, crate::core::world_config::ScriptCfg>,
+    pub entities: Vec<crate::core::world_config::EntityCfg>,
+    pub pending_messages: Vec<Message>,
+    pub simulation_time: u64,
+}
 
-        let state = Rc::new(RefCell::new(WorldState {
+impl World {
+    pub fn new(init: WorldSnapshotData) -> Result<Self, CoreError> {
+        let state = Rc::new(RefCell::new(State {
             entities: HashMap::new(),
         }));
 
-        for entity_cfg in &cfg.entities {
+        for entity_cfg in &init.entities {
             let mut entity = Entity::new(
                 entity_cfg.id.clone(),
-                cfg.script_library.get(&entity_cfg.script_id).unwrap().clone(),
+                init.script_library.get(&entity_cfg.script_id).unwrap().clone(),
                 entity_cfg.initial_state.clone(),
                 state.clone(),
             )
@@ -63,14 +69,14 @@ impl World {
         //TODO: Metrics should be initialized from configuration as well
 
         let mut world = World {
-            cfg: cfg.clone(),
-            simulation_time: cfg.simulation_time,
+            entity_scripts_registry: init.script_library.clone(),
+            simulation_time: init.simulation_time,
             msg_bus: MessageBus::new(),
             state: state,
             metrics: Metrics::new(),
         };
 
-        for message in &cfg.pending_messages {
+        for message in &init.pending_messages {
             world.msg_bus.schedule_message(
                 &message.sender,
                 message.receiver.clone(),
@@ -145,7 +151,7 @@ impl World {
                     initial_state,
                 } => {
                     // TODO: return error if entity with same ID exists or script is not found
-                    if let Some(script_cfg) = self.cfg.script_library.get(&script_id) {
+                    if let Some(script_cfg) = self.entity_scripts_registry.get(&script_id) {
                         let entity = Entity::new(
                             entity_id.clone(),
                             script_cfg.clone(),
@@ -197,47 +203,17 @@ impl World {
         self.simulation_time = new_time;
     }
 
-    pub fn get_state_ref(&self) -> std::cell::Ref<'_, WorldState> {
+    pub fn get_state_ref(&self) -> std::cell::Ref<'_, State> {
         self.state.borrow()
     }
 
-    fn get_state_mut(&self) -> std::cell::RefMut<'_, WorldState> {
+    fn get_state_mut(&self) -> std::cell::RefMut<'_, State> {
         self.state.borrow_mut()
     }
 
     pub fn get_metrics_ref(&self) -> &Metrics {
         &self.metrics
     }
-
-    // pub fn create_snapshot(&self) -> Result<crate::core::snapshot::WorldSnapshot, CoreError> {
-    //     let mut world_config = WorldCfg::new(self.cfg.name.clone());
-
-    //     // Copy scripts
-    //     for (script_id, script_cfg) in &self.cfg.script_library {
-    //         world_config.add_script(script_id.clone(), script_cfg.script.clone());
-    //     }
-
-    //     // Copy entities and their states
-    //     for (id, entity_cell) in &self.get_state_ref().entities {
-    //         let entity = entity_cell.borrow();
-    //         let lua_controller = entity.get_lua_controller();
-    //         let state = lua_controller.get_state()?;
-
-    //         world_config.upsert_entity(id, entity.get_script_id(), Some(state))?;
-    //     }
-
-    //     let mut messages = Vec::new();
-    //     for msg in self.msg_bus.get_pending_messages_iter() {
-    //         messages.push(msg.clone());
-    //     }
-
-    //     Ok(crate::core::snapshot::WorldSnapshot::new(
-    //         world_config,
-    //         self.simulation_time,
-    //         messages,
-    //         self.metrics.create_snapshot(),
-    //     ))
-    // }
 
     pub fn get_entities_count(&self) -> usize {
         self.get_state_ref().entities.len()
@@ -252,7 +228,7 @@ impl World {
     }
 }
 
-impl WorldState {
+impl State {
     pub fn get_entities(&self) -> &HashMap<String, RefCell<Entity>> {
         &self.entities
     }

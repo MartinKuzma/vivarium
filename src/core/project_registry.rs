@@ -3,7 +3,6 @@ use crate::core::world::World;
 use std::sync::{RwLock, Arc};
 use crate::core::errors::CoreError;
 
-
 // Registry for managing multiple simulations.
 pub struct Registry {
     worlds: RwLock<HashMap<String, Arc<RwLock<World>>>>,

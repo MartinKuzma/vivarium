@@ -1,5 +1,5 @@
 use rmcp::{ServiceExt, transport::stdio};
-use vivarium::core::registry::Registry;
+use vivarium::core::project_registry::Registry;
 use vivarium::mcp::VivariumToolServer;
 
 #[tokio::main]

@@ -1,6 +1,7 @@
 use crate::cli::init_project;
 use crate::cli::run;
 use crate::core::persistence::loader::SnapshotSelection;
+use clap::builder::Str;
 use clap::{Parser, Subcommand};
 use std::env;
 use std::path::PathBuf;
@@ -22,10 +23,12 @@ enum Commands {
     Run {
         #[arg(value_name = "project-dir", default_value = ".")]
         project_dir: PathBuf,
-        #[arg(value_name = "steps")]
+        #[arg(value_name = "steps", help = "Number of simulation steps to run")]
         steps: u32,
-        #[arg(long, value_enum, default_value = "latest")]
+        #[arg(default_value = "latest", help = "Specify which snapshot to load: 'latest' or a specific snapshot name")]
         snapshot: SnapshotSelection,
+        #[arg(value_name = "save-snapshot", default_value = None, help = "Optionally specify a name to save the snapshot after running")]
+        save_snapshot: Option<String>,
     },
 }
 
@@ -38,6 +41,7 @@ pub fn run_from_env() -> Result<(), String> {
             project_dir,
             steps,
             snapshot,
-        } => run::run_project(project_dir, steps, snapshot),
+            save_snapshot,
+        } => run::run_project(project_dir, steps, snapshot, save_snapshot),
     }
 }
