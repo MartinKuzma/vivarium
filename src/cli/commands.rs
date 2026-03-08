@@ -1,7 +1,6 @@
-use crate::cli::init_project;
 use crate::cli::run;
+use crate::core::persistence::init_project;
 use crate::core::persistence::loader::SnapshotSelection;
-use clap::builder::Str;
 use clap::{Parser, Subcommand};
 use std::env;
 use std::path::PathBuf;
@@ -29,6 +28,8 @@ enum Commands {
         snapshot: SnapshotSelection,
         #[arg(value_name = "save-snapshot", default_value = None, help = "Optionally specify a name to save the snapshot after running")]
         save_snapshot: Option<String>,
+        #[arg(long, default_value_t = false, help = "Reset metrics when loading snapshot")]
+        reset_metrics: bool,
     },
 }
 
@@ -42,6 +43,7 @@ pub fn run_from_env() -> Result<(), String> {
             steps,
             snapshot,
             save_snapshot,
-        } => run::run_project(project_dir, steps, snapshot, save_snapshot),
+            reset_metrics,
+        } => run::run_project(project_dir, steps, snapshot, save_snapshot, reset_metrics),
     }
 }

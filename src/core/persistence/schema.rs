@@ -39,6 +39,9 @@ pub struct ManifestSnapshot {
     pub id: String,
     #[schemars(description = "Simulation time at which the snapshot was captured")]
     pub simulation_time: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(description = "Optional serialized metrics time-series captured at snapshot time")]
+    pub metrics: Option<crate::core::metrics::MetricsSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]

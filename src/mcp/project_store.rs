@@ -2,106 +2,86 @@ use std::collections::HashMap;
 use crate::core::World;
 use std::sync::{RwLock, Arc};
 use crate::core::errors::CoreError;
+use crate::core::persistence::project::ProjectContext;
+
+struct LoadedProject {
+    world: Arc<RwLock<World>>,
+    project_context: ProjectContext,
+}
 
 // Registry for managing multiple simulations.
 pub struct ProjectStore {
-    worlds: RwLock<HashMap<String, Arc<RwLock<World>>>>,
+    projects: RwLock<HashMap<String, LoadedProject>>,
 }
 
 impl ProjectStore {
     pub fn new() -> Self {
         ProjectStore {
-            worlds: RwLock::new(HashMap::new()),
+            projects: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn add(&self, name: String, world: World) -> Result<(), CoreError> {
-        let mut self_worlds = self.worlds.write().unwrap();
+    pub fn add_project(
+        &self,
+        name: String,
+        world: World,
+        project_context: ProjectContext,
+        replace_if_exists: bool,
+    ) -> Result<(), CoreError> {
+        let mut projects = self.projects.write().unwrap();
 
-        if self_worlds.contains_key(&name) {
+        if projects.contains_key(&name) && !replace_if_exists {
             return Err(CoreError::WorldAlreadyExists);
         }
 
-        self_worlds.insert(name, Arc::new(RwLock::new(world)));
+        projects.insert(
+            name,
+            LoadedProject {
+                world: Arc::new(RwLock::new(world)),
+                project_context,
+            },
+        );
+        Ok(())
+    }
+
+    pub fn replace_world(&self, name: &str, world: World) -> Result<(), CoreError> {
+        let mut projects = self.projects.write().unwrap();
+        let Some(loaded_project) = projects.get_mut(name) else {
+            return Err(CoreError::WorldNotFound {
+                name: name.to_string(),
+            });
+        };
+
+        loaded_project.world = Arc::new(RwLock::new(world));
         Ok(())
     }
 
     pub fn get(&self, name: &str) -> Result<Arc<RwLock<World>>, CoreError> {
-        match self.worlds.read().unwrap().get(name) {
-            Some(world) => Ok(world.clone()),
+        match self.projects.read().unwrap().get(name) {
+            Some(loaded_project) => Ok(loaded_project.world.clone()),
             None => Err(CoreError::WorldNotFound { name: name.to_string() }),
         }
     }
 
     pub fn delete(&self, name: &str) -> Result<(), CoreError> {
-        if self.worlds.write().unwrap().remove(name).is_none() {
+        if self.projects.write().unwrap().remove(name).is_none() {
             return Err(CoreError::WorldNotFound { name: name.to_string() });
         }
         Ok(())
     }
 
-    // pub fn copy(&self, source_name: &str, target_name: &str, replace: bool) -> Result<(), CoreError> {
-    //     let source_world = self.get(source_name)?;
-
-    //     let source_world_guard = source_world.read().unwrap();
-    //     let snapshot = source_world_guard.create_snapshot()?;
-
-    //     let mut target_worlds = self.worlds.write().unwrap();
-
-    //     if !replace && target_worlds.contains_key(target_name) {
-    //         return Err(CoreError::WorldAlreadyExists);
-    //     }
-
-    //     let target_world = World::new_from_snapshot(snapshot)?;
-    //     target_worlds.insert(target_name.to_string(), Arc::new(RwLock::new(target_world)));
-    //     Ok(())
-    // }
-
-    pub fn list(&self) -> Vec<String> {
-        self.worlds.read().unwrap().keys().cloned().collect()
+    pub fn get_project_context(&self, name: &str) -> Result<ProjectContext, CoreError> {
+        self.projects
+            .read()
+            .unwrap()
+            .get(name)
+            .map(|loaded_project| loaded_project.project_context.clone())
+            .ok_or_else(|| CoreError::WorldNotFound {
+                name: name.to_string(),
+            })
     }
 
-    // pub fn restore_snapshot(&self, world_name: &str, snapshot: WorldSnapshot) -> Result<(), CoreError> {
-    //     let restored_world = World::new_from_snapshot(snapshot)?;
-
-    //     let mut worlds = self.worlds.write().unwrap();
-    //     worlds.insert(world_name.to_string(), Arc::new(RwLock::new(restored_world)));
-    //     Ok(())
-    // }
-
-    // pub fn get_snapshot(&self, world_name: &str) -> Result<WorldSnapshot, CoreError> {
-    //     match self.worlds.read().unwrap().get(world_name) {
-    //         Some(world) => {
-    //             let world_guard = world.read().unwrap();
-    //             world_guard.create_snapshot()
-    //         },
-    //         None => Err(CoreError::WorldNotFound { name: world_name.to_string() }),
-    //     }
-    // }
-
-    // pub fn save_snapshot_to_file(&self, snapshot_name: &str, file_path: &str) -> Result<(), CoreError> {
-    //     let self_snapshots = self.snapshots.read().unwrap();
-    //     let snapshot =  self_snapshots.get(snapshot_name).ok_or(
-    //         CoreError::SnapshotNotFound { name: snapshot_name.to_string() }
-    //     )?;
-
-    //     let serialized = serde_json::to_string_pretty(&snapshot)
-    //     .map_err(|e| CoreError::SerializationError(format!("Failed to serialize snapshot: {}", e)))?;
-
-    //     std::fs::write(file_path, serialized)
-    //         .map_err(|e| CoreError::SerializationError(format!("Failed to write snapshot to file: {}", e)))?;
-
-    //     Ok(())
-    // }
-
-    // pub fn load_snapshot_from_file(&self, file_path: &str) -> Result<(), CoreError> {
-    //     let data = std::fs::read_to_string(file_path)
-    //         .map_err(|e| CoreError::DeserializationError(format!("Failed to read snapshot file: {}", e)))?;
-
-    //     let snapshot: WorldSnapshot = serde_json::from_str(&data)
-    //         .map_err(|e| CoreError::DeserializationError(format!("Failed to deserialize snapshot: {}", e)))?;
-
-    //     self.snapshots.write().unwrap().insert(file_path.to_string(), snapshot);
-    //     Ok(())
-    // }
+    pub fn list(&self) -> Vec<String> {
+        self.projects.read().unwrap().keys().cloned().collect()
+    }
 }

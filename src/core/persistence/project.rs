@@ -1,6 +1,5 @@
-use crate::core::errors::CoreError;
 use crate::core::persistence::schema::{ManifestSnapshot, ProjectManifest};
-use crate::core::world_config::{EntityCfg};
+use crate::core::world_config::EntityCfg;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -16,5 +15,5 @@ pub struct Snapshot {
     pub simulation_time: u64,
 	pub entities: Vec<EntityCfg>,
 	pub pending_messages: Vec<crate::core::messaging::Message>,
-	//metrics: snapshot::MetricsSnapshot,
+	pub metrics: Option<crate::core::metrics::MetricsSnapshot>,
 }

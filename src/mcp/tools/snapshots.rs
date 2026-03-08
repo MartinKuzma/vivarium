@@ -1,139 +1,160 @@
+use crate::core::persistence::{loader, project::Snapshot, saver, schema};
+use crate::mcp::project_store::ProjectStore;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, schemars};
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
-pub struct CreateSnapshotRequest {
-    #[schemars(description = "The name of the simulation world to snapshot")]
-    pub world_name: String,
+pub struct ListProjectSnapshotsRequest {
+    #[schemars(description = "Loaded project name")]
+    pub project_name: String,
 }
 
 #[derive(serde::Serialize, schemars::JsonSchema)]
-pub struct CreateSnapshotResponse {
-    #[schemars(description = "The success message confirming snapshot creation")]
-    pub success_message: String,
+pub struct ListProjectSnapshotsResponse {
+    #[schemars(description = "Available snapshot names (directory names under snapshots/)")]
+    pub snapshots: Vec<String>,
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
-pub struct SaveSnapshotToFileRequest {
-    #[schemars(description = "The name of the simulation world to snapshot")]
-    pub world_name: String,
-    #[schemars(description = "The file path to save the snapshot to. Use a .yaml extension.")]
-    pub file_path: String,
+pub struct SaveProjectSnapshotRequest {
+    #[schemars(description = "Loaded project name")]
+    pub project_name: String,
+    #[schemars(description = "Snapshot name (directory name under snapshots/)")]
+    pub snapshot_name: String,
 }
 
 #[derive(serde::Serialize, schemars::JsonSchema)]
-pub struct SaveSnapshotToFileResponse {
-    #[schemars(description = "The file path where the snapshot was saved")]
-    pub file_path: String,
-}
-
-#[derive(serde::Serialize, schemars::JsonSchema)]
-pub struct RestoreSnapshotResponse {
+pub struct SaveProjectSnapshotResponse {
     #[schemars(description = "Success message")]
     pub message: String,
 }
 
 #[derive(serde::Deserialize, schemars::JsonSchema)]
-pub struct RestoreSnapshotRequest {
-    #[schemars(description = "The name of the simulation world to restore the snapshot into")]
-    pub world_name: String,
-    #[schemars(description = "The success message confirming snapshot restoration")]
-    pub success_message: String,
-}
-
-#[derive(serde::Deserialize, schemars::JsonSchema)]
-pub struct LoadSnapshotFromFileRequest {
-    #[schemars(description = "The name of the simulation world to load the snapshot into")]
-    pub world_name: String,
-    #[schemars(description = "The file path of yaml snapshot to load")]
-    pub file_path: String,
+pub struct LoadProjectSnapshotRequest {
+    #[schemars(description = "Loaded project name")]
+    pub project_name: String,
+    #[serde(default = "default_snapshot_selection")]
+    #[schemars(description = "Snapshot to load: use 'latest' or a specific snapshot name")]
+    pub snapshot: String,
+    #[serde(default)]
+    #[schemars(description = "Reset metrics when loading snapshot")]
+    pub reset_metrics: bool,
 }
 
 #[derive(serde::Serialize, schemars::JsonSchema)]
-pub struct LoadSnapshotFromFileResponse {
+pub struct LoadProjectSnapshotResponse {
     #[schemars(description = "Success message")]
     pub message: String,
 }
 
-// pub fn create_snapshot(
-//     registry: &crate::core::registry::Registry,
-//     request: CreateSnapshotRequest,
-// ) -> Result<Json<CreateSnapshotResponse>, McpError> {
-//     let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
-//         McpError::new(
-//             rmcp::model::ErrorCode::INVALID_PARAMS,
-//             format!(
-//                 "Failed to create snapshot for world '{}': {}",
-//                 request.world_name, e
-//             ),
-//             None,
-//         )
-//     })?;
+fn default_snapshot_selection() -> String {
+    "latest".to_string()
+}
 
-//     Ok(Json(CreateSnapshotResponse { snapshot }))
-// }
+pub fn list_project_snapshots(
+    store: &ProjectStore,
+    request: ListProjectSnapshotsRequest,
+) -> Result<Json<ListProjectSnapshotsResponse>, McpError> {
+    let project_ctx = store.get_project_context(&request.project_name)?;
+    let snapshots_dir = project_ctx.project_root.join(schema::DIR_SNAPSHOTS);
 
-// pub fn restore_snapshot(
-//     registry: &crate::core::registry::Registry,
-//     request: RestoreSnapshotRequest,
-// ) -> Result<Json<RestoreSnapshotResponse>, McpError> {
-//     registry
-//         .restore_snapshot(&request.world_name, request.snapshot)
-//         .map_err(|e| {
-//             McpError::new(
-//                 rmcp::model::ErrorCode::INVALID_PARAMS,
-//                 format!(
-//                     "Failed to restore snapshot into world '{}': {}",
-//                     request.world_name, e
-//                 ),
-//                 None,
-//             )
-//         })?;
+    let mut snapshots = std::fs::read_dir(&snapshots_dir)
+        .map_err(|e| {
+            McpError::new(
+                rmcp::model::ErrorCode::INTERNAL_ERROR,
+                format!(
+                    "Failed to read snapshots directory '{}': {}",
+                    snapshots_dir.display(),
+                    e
+                ),
+                None,
+            )
+        })?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| {
+            let snapshot_manifest = entry.path().join(schema::FILE_SNAPSHOT_MANIFEST);
+            if snapshot_manifest.exists() {
+                Some(entry.file_name().to_string_lossy().to_string())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
-//     Ok(Json(RestoreSnapshotResponse {
-//         message: format!("Snapshot restored into world '{}'", request.world_name),
-//     }))
-// }
+    snapshots.sort_by(|a, b| b.cmp(a));
 
-// pub fn save_snapshot_to_file(
-//     registry: &crate::core::registry::Registry,
-//     request: SaveSnapshotToFileRequest,
-// ) -> Result<Json<SaveSnapshotToFileResponse>, McpError> {
-//     let snapshot = registry.get_snapshot(&request.world_name).map_err(|e| {
-//         McpError::new(
-//             rmcp::model::ErrorCode::INVALID_PARAMS,
-//             format!(
-//                 "Failed to create snapshot for world '{}': {}",
-//                 request.world_name, e
-//             ),
-//             None,
-//         )
-//     })?;
+    Ok(Json(ListProjectSnapshotsResponse { snapshots }))
+}
 
-//     snapshot.to_yaml_file(&request.file_path).map_err(|e| {
-//         McpError::new(
-//             rmcp::model::ErrorCode::INTERNAL_ERROR,
-//             format!(
-//                 "Failed to save snapshot to file '{}': {}",
-//                 request.file_path, e
-//             ),
-//             None,
-//         )
-//     })?;
+pub fn save_project_snapshot(
+    store: &ProjectStore,
+    request: SaveProjectSnapshotRequest,
+) -> Result<Json<SaveProjectSnapshotResponse>, McpError> {
+    let world_arc = store.get(&request.project_name)?;
+    let world = world_arc.read().unwrap();
+    let project_ctx = store.get_project_context(&request.project_name)?;
 
-//     Ok(Json(SaveSnapshotToFileResponse {
-//         file_path: request.file_path,
-//     }))
-// }
+    let snapshot = Snapshot {
+        meta: schema::ManifestSnapshot {
+            schema_version: schema::PROJECT_SCHEMA_VERSION_V1.to_string(),
+            id: request.snapshot_name.clone(),
+            simulation_time: world.get_simulation_time(),
+            metrics: Some(world.get_metrics_snapshot()),
+        },
+        simulation_time: world.get_simulation_time(),
+        entities: world.get_entities_snapshot()?,
+        pending_messages: world.get_pending_messages(),
+        metrics: Some(world.get_metrics_snapshot()),
+    };
 
-// pub fn load_snapshot_from_file(
-//     registry: &crate::core::registry::Registry,
-//     request: LoadSnapshotFromFileRequest,
-// ) -> Result<Json<LoadSnapshotFromFileResponse>, McpError> {
+    saver::save_project_snapshot(&project_ctx, &request.snapshot_name, snapshot)?;
 
-//     let snapshot = WorldSnapshot::from_yaml_file(&request.file_path)?;
-//     registry.restore_snapshot(&request.world_name, snapshot)?;
-//     Ok(Json(LoadSnapshotFromFileResponse {
-//         message: format!("Snapshot loaded from file '{}' into '{}'", request.file_path, request.world_name),
-//     }))
-// }
+    Ok(Json(SaveProjectSnapshotResponse {
+        message: format!(
+            "Snapshot '{}' saved for project '{}'",
+            request.snapshot_name, request.project_name
+        ),
+    }))
+}
+
+pub fn load_project_snapshot(
+    store: &ProjectStore,
+    request: LoadProjectSnapshotRequest,
+) -> Result<Json<LoadProjectSnapshotResponse>, McpError> {
+    let project_ctx = store.get_project_context(&request.project_name)?;
+    let snapshot_selection = request
+        .snapshot
+        .parse::<loader::SnapshotSelection>()
+        .map_err(|e| {
+            McpError::new(
+                rmcp::model::ErrorCode::INVALID_PARAMS,
+                format!("Invalid snapshot selection '{}': {}", request.snapshot, e),
+                None,
+            )
+        })?;
+
+    let snapshot = loader::load_snapshot(&project_ctx, snapshot_selection)?;
+    let world_data = crate::core::WorldSnapshotData {
+        name: project_ctx.manifest.name.clone(),
+        script_library: project_ctx.script_library.clone(),
+        entities: snapshot.entities,
+        pending_messages: snapshot.pending_messages,
+        metrics: if request.reset_metrics {
+            None
+        } else {
+            snapshot.metrics
+        },
+        simulation_time: snapshot.simulation_time,
+    };
+
+    let world = crate::core::World::new(world_data)?;
+    store.replace_world(&request.project_name, world)?;
+
+    Ok(Json(LoadProjectSnapshotResponse {
+        message: format!(
+            "Snapshot '{}' loaded into project '{}'",
+            request.snapshot, request.project_name
+        ),
+    }))
+}

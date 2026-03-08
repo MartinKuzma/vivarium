@@ -106,11 +106,10 @@ pub fn load_snapshot(project_ctx: &ProjectContext, snapshot_selection: SnapshotS
 
     Ok(Snapshot {
         simulation_time: manifest_snapshot.simulation_time.clone(),
+        metrics: manifest_snapshot.metrics.clone(),
         meta : manifest_snapshot,
         entities: entities,
         pending_messages: pending_messages,
-		//TODO: Load metrics from snapshot as well
-        //metrics: manifest_snapshot.metrics,
     })
 }
 

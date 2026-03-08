@@ -1,4 +1,4 @@
-use crate::{core::persistence, mcp::tools::world, mcp::project_store::ProjectStore};
+use crate::{core::persistence, mcp::tools::{snapshots, world}, mcp::project_store::ProjectStore};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -24,50 +24,88 @@ impl VivariumToolServer {
         }
     }
 
-    #[tool(description = "Load a simulation world project from a project manifest file containing the world configuration")]
+    #[tool(description = "Load a project from its manifest and snapshot into the in-memory runtime")]
     fn load_project(
         &self,
         Parameters(request): Parameters<world::LoadProjectRequest>,
     ) -> Result<rmcp::Json<world::LoadProjectResponse>, McpError> {
         let project_ctx = persistence::loader::load_project_from_file(&request.manifest_file_path)?;
+        let snapshot_selection = request
+            .snapshot
+            .parse::<persistence::loader::SnapshotSelection>()
+            .map_err(|e| {
+                McpError::new(
+                    rmcp::model::ErrorCode::INVALID_PARAMS,
+                    format!("Invalid snapshot selection '{}': {}", request.snapshot, e),
+                    None,
+                )
+            })?;
+        let snapshot = persistence::loader::load_snapshot(
+            &project_ctx,
+            snapshot_selection,
+        )?;
 
-        //TODO: fix
-        //let world = project_ctx.instantiate_world()?;
-        //self.world_registry.add(project_ctx.manifest.name.clone(), world)?;
+        let world_data = crate::core::WorldSnapshotData {
+            name: project_ctx.manifest.name.clone(),
+            script_library: project_ctx.script_library.clone(),
+            entities: snapshot.entities,
+            pending_messages: snapshot.pending_messages,
+            metrics: if request.reset_metrics { None } else { snapshot.metrics },
+            simulation_time: snapshot.simulation_time,
+        };
+
+        let world = crate::core::World::new(world_data)?;
+        self.store.add_project(
+            project_ctx.manifest.name.clone(),
+            world,
+            project_ctx.clone(),
+            request.replace_if_loaded,
+        )?;
 
         Ok(rmcp::Json(world::LoadProjectResponse {
-            message: format!("World loaded successfully from file '{}'", request.manifest_file_path),
+            message: format!(
+                "Project '{}' loaded successfully from '{}' (snapshot='{}')",
+                project_ctx.manifest.name, request.manifest_file_path, request.snapshot
+            ),
         }))
     }
 
-    #[tool(description = "Delete an existing simulation world by name")]
-    fn delete_world(&self, Parameters(name): Parameters<String>) -> Result<rmcp::Json<world::DeleteWorldResponse>, McpError> {
-        self.store.delete(&name).map_err(|e| {
+    #[tool(description = "Initialize a new Vivarium project folder with starter scripts and an initial snapshot")]
+    fn initialize_project(
+        &self,
+        Parameters(request): Parameters<world::InitializeProjectRequest>,
+    ) -> Result<rmcp::Json<world::InitializeProjectResponse>, McpError> {
+        crate::core::persistence::init_project::init_project(std::path::Path::new(&request.target_dir)).map_err(|e| {
             McpError::new(
                 rmcp::model::ErrorCode::INTERNAL_ERROR,
-                format!("Failed to delete world '{}': {}", name, e),
+                format!("Failed to initialize project at '{}': {}", request.target_dir, e),
                 None,
             )
         })?;
 
-        Ok(rmcp::Json(world::DeleteWorldResponse {
-            message: format!("World '{}' deleted successfully", name),
+        Ok(rmcp::Json(world::InitializeProjectResponse {
+            message: format!("Project initialized successfully at '{}'", request.target_dir),
         }))
     }
 
-    // #[tool(
-    //     description = "Copy an existing simulation world to a new world with the specified name"
-    // )]
-    // fn copy_world(
-    //     &self,
-    //     Parameters(request): Parameters<world::CopyWorldRequest>,
-    // ) -> Result<rmcp::Json<world::CopyWorldResponse>, McpError> {
-    //     world::copy_world(&self.world_registry, request)
-    // }
+    #[tool(description = "Unload a loaded project from memory by name")]
+    fn unload_project(&self, Parameters(name): Parameters<String>) -> Result<rmcp::Json<world::UnloadProjectResponse>, McpError> {
+        self.store.delete(&name).map_err(|e| {
+            McpError::new(
+                rmcp::model::ErrorCode::INTERNAL_ERROR,
+                format!("Failed to unload project '{}': {}", name, e),
+                None,
+            )
+        })?;
 
-    #[tool(description = "List all existing simulation worlds")]
-    fn list_worlds(&self) -> Result<rmcp::Json<world::ListWorldsResponse>, McpError> {
-        world::list_worlds(&self.store)
+        Ok(rmcp::Json(world::UnloadProjectResponse {
+            message: format!("Project '{}' unloaded successfully", name),
+        }))
+    }
+
+    #[tool(description = "List all loaded projects")]
+    fn list_projects(&self) -> Result<rmcp::Json<world::ListProjectsResponse>, McpError> {
+        world::list_projects(&self.store)
     }
 
     #[tool(description = "List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages.")]
@@ -86,7 +124,7 @@ impl VivariumToolServer {
         world::advance_simulation(&self.store, Parameters(request))
     }
 
-    #[tool(description = "List the names of all available metrics in the simulation world.")]
+    #[tool(description = "List the names of all available metrics in the loaded project.")]
     pub fn list_metrics(
         &self,
         Parameters(request): Parameters<crate::mcp::tools::metrics::ListMetricsRequest>,
@@ -97,9 +135,9 @@ impl VivariumToolServer {
     #[tool(description = "Get the current values of a specific metric by name.")]
     pub fn get_metric(
         &self,
-        Parameters((world_name, metric_name)): Parameters<(String, String)>,
+        Parameters((project_name, metric_name)): Parameters<(String, String)>,
     ) -> Result<rmcp::Json<crate::core::metrics::MetricStats>, McpError> {
-        crate::mcp::tools::metrics::get_metric(&self.store, world_name, metric_name)
+        crate::mcp::tools::metrics::get_metric(&self.store, project_name, metric_name)
     }
 
     #[tool(description = "Get the current values of multiple metrics by their names.")]
@@ -123,46 +161,45 @@ impl VivariumToolServer {
     #[tool(description = "Get the current state of a specific entity by its ID.")]
     pub fn get_entity_state(
         &self,
-        Parameters((world_name, entity_id)): Parameters<(String, String)>,
+        Parameters((project_name, entity_id)): Parameters<(String, String)>,
     ) -> Result<rmcp::Json<world::GetEntityStateResponse>, McpError> {
-        world::get_entity_state(&self.store, world_name, entity_id)
+        world::get_entity_state(&self.store, project_name, entity_id)
     }
 
     #[tool(
-        description = "Get the overall state of the simulation world, including simulation time, entity count, and pending message count."
+        description = "Get the overall state of the loaded project, including simulation time, entity count, and pending message count."
     )]
-    pub fn get_world_state(
+    pub fn get_project_state(
         &self,
-        Parameters(request): Parameters<world::GetWorldStateRequest>,
-    ) -> Result<rmcp::Json<world::GetWorldStateResponse>, McpError> {
-        world::get_world_state(&self.store, request)
+        Parameters(request): Parameters<world::GetProjectStateRequest>,
+    ) -> Result<rmcp::Json<world::GetProjectStateResponse>, McpError> {
+        world::get_project_state(&self.store, request)
     }
 
-    // #[tool(
-    //     description = "Create a snapshot of the current state of the simulation world, including entity states and pending messages."
-    // )]
-    // pub fn create_world_snapshot(
-    //     &self,
-    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::CreateSnapshotRequest>,
-    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::CreateSnapshotResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::create_snapshot(&self.store, request)
-    // }
+    #[tool(description = "List available snapshot names for a loaded project")]
+    pub fn list_project_snapshots(
+        &self,
+        Parameters(request): Parameters<snapshots::ListProjectSnapshotsRequest>,
+    ) -> Result<rmcp::Json<snapshots::ListProjectSnapshotsResponse>, McpError> {
+        snapshots::list_project_snapshots(&self.store, request)
+    }
 
-    // #[tool(description = "Restore a simulation world to a previously created snapshot state.")]
-    // pub fn restore_world_snapshot(
-    //     &self,
-    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::RestoreSnapshotRequest>,
-    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::RestoreSnapshotResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::restore_snapshot(&self.store, request)
-    // }
+    #[tool(description = "Save a snapshot for a loaded project")]
+    pub fn save_project_snapshot(
+        &self,
+        Parameters(request): Parameters<snapshots::SaveProjectSnapshotRequest>,
+    ) -> Result<rmcp::Json<snapshots::SaveProjectSnapshotResponse>, McpError> {
+        snapshots::save_project_snapshot(&self.store, request)
+    }
 
-    // #[tool(description = "Save a simulation world snapshot to a YAML file.")]
-    // pub fn save_world_snapshot_to_file(
-    //     &self,
-    //     Parameters(request): Parameters<crate::mcp::tools::snapshots::SaveSnapshotToFileRequest>,
-    // ) -> Result<rmcp::Json<crate::mcp::tools::snapshots::SaveSnapshotToFileResponse>, McpError> {
-    //     crate::mcp::tools::snapshots::save_snapshot_to_file(&self.store, request)
-    // }
+    #[tool(description = "Load a snapshot into a loaded project")]
+    pub fn load_project_snapshot(
+        &self,
+        Parameters(request): Parameters<snapshots::LoadProjectSnapshotRequest>,
+    ) -> Result<rmcp::Json<snapshots::LoadProjectSnapshotResponse>, McpError> {
+        snapshots::load_project_snapshot(&self.store, request)
+    }
+
 
     // #[tool(description = "Load a simulation world snapshot from a YAML file.")]
     // pub fn load_world_snapshot_from_file(

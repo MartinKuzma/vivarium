@@ -2,7 +2,7 @@ use crate::core::Entity;
 use crate::core::errors::CoreError;
 use crate::core::messaging::Command;
 use crate::core::messaging::{JSONObject, Message, MessageBus};
-use crate::core::metrics::Metrics;
+use crate::core::metrics::{Metrics, MetricsSnapshot};
 use std::rc::Rc;
 
 use std::{cell::RefCell, collections::HashMap};
@@ -31,6 +31,7 @@ pub struct WorldSnapshotData {
     pub script_library: HashMap<String, crate::core::world_config::ScriptCfg>,
     pub entities: Vec<crate::core::world_config::EntityCfg>,
     pub pending_messages: Vec<Message>,
+    pub metrics: Option<MetricsSnapshot>,
     pub simulation_time: u64,
 }
 
@@ -65,14 +66,15 @@ impl World {
             state.borrow_mut().add_entity(entity_cfg.id.clone(), entity)?;
         }
 
-        //TODO: Metrics should be initialized from configuration as well
-
         let mut world = World {
             entity_scripts_registry: init.script_library.clone(),
             simulation_time: init.simulation_time,
             msg_bus: MessageBus::new(),
             state: state,
-            metrics: Metrics::new(),
+            metrics: match &init.metrics {
+                Some(snapshot) => Metrics::new_from_snapshot(snapshot),
+                None => Metrics::new(),
+            },
         };
 
         for message in &init.pending_messages {
@@ -224,6 +226,38 @@ impl World {
 
     pub fn get_pending_messages_count(&self) -> usize {
         self.msg_bus.get_pending_messages_count()
+    }
+
+    pub fn get_pending_messages(&self) -> Vec<Message> {
+        self.msg_bus.get_pending_messages_iter().cloned().collect()
+    }
+
+    pub fn get_entities_snapshot(&self) -> Result<Vec<crate::core::world_config::EntityCfg>, CoreError> {
+        let mut entities = Vec::new();
+
+        for (id, entity) in self.get_state_ref().get_entities() {
+            let entity_ref = entity.borrow();
+            let state = entity_ref.get_lua_controller().get_state().map_err(|e| {
+                CoreError::SnapshotError(format!(
+                    "Failed to serialize state for entity '{}': {}",
+                    id, e
+                ))
+            })?;
+
+            let script_id = entity_ref.get_script_id().clone();
+
+            entities.push(crate::core::world_config::EntityCfg {
+                id: id.clone(),
+                script_id,
+                initial_state: Some(state),
+            });
+        }
+
+        Ok(entities)
+    }
+
+    pub fn get_metrics_snapshot(&self) -> MetricsSnapshot {
+        self.metrics.create_snapshot()
     }
 }
 

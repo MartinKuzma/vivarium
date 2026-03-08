@@ -1,6 +1,7 @@
 use crate::core::persistence::schema::{
-    DIR_SNAPSHOTS, FILE_SNAPSHOT_ENTITIES, FILE_SNAPSHOT_MANIFEST, FILE_SNAPSHOT_MESSAGES, ManifestEntities, ManifestEntityCfg, ManifestMessages,
-    ManifestScriptCfg, ManifestSnapshot, PROJECT_SCHEMA_VERSION_V1, ProjectManifest,
+    DIR_SNAPSHOTS, FILE_SNAPSHOT_ENTITIES, FILE_SNAPSHOT_MANIFEST, FILE_SNAPSHOT_MESSAGES,
+    ManifestEntities, ManifestEntityCfg, ManifestMessages, ManifestScriptCfg, ManifestSnapshot,
+    PROJECT_SCHEMA_VERSION_V1, ProjectManifest,
 };
 use std::fs;
 use std::path::Path;
@@ -11,13 +12,16 @@ const FILE_WORLD_MANIFEST: &str = "world.yaml";
 const FILE_DEFAULT_SCRIPT: &str = "agent_script.lua";
 
 pub fn init_project(target_dir: &Path) -> Result<(), String> {
-    fs::create_dir_all(target_dir).map_err(|e| format!("Failed to create target directory '{}': {}", target_dir.display(), e))?;
+    fs::create_dir_all(target_dir)
+        .map_err(|e| format!("Failed to create target directory '{}': {}", target_dir.display(), e))?;
 
     let scripts_dir = target_dir.join(DIR_SCRIPTS);
     let snapshot_dir = target_dir.join(DIR_SNAPSHOTS).join(INITIAL_SNAPSHOT_ID);
 
-    fs::create_dir_all(&scripts_dir).map_err(|e| format!("Failed to create scripts directory '{}': {}", scripts_dir.display(), e))?;
-    fs::create_dir_all(&snapshot_dir).map_err(|e| format!("Failed to create snapshot directory '{}': {}", snapshot_dir.display(), e))?;
+    fs::create_dir_all(&scripts_dir)
+        .map_err(|e| format!("Failed to create scripts directory '{}': {}", scripts_dir.display(), e))?;
+    fs::create_dir_all(&snapshot_dir)
+        .map_err(|e| format!("Failed to create snapshot directory '{}': {}", snapshot_dir.display(), e))?;
 
     let project_name = target_dir
         .file_name()
@@ -47,6 +51,7 @@ pub fn init_project(target_dir: &Path) -> Result<(), String> {
         schema_version: PROJECT_SCHEMA_VERSION_V1.to_string(),
         id: INITIAL_SNAPSHOT_ID.to_string(),
         simulation_time: 0,
+        metrics: None,
     };
 
     let mut initial_state = serde_json::Map::new();
@@ -60,7 +65,9 @@ pub fn init_project(target_dir: &Path) -> Result<(), String> {
         }],
     };
 
-    let messages_manifest = ManifestMessages { messages: Vec::new() };
+    let messages_manifest = ManifestMessages {
+        messages: Vec::new(),
+    };
 
     write_if_missing_yaml(&target_dir.join(FILE_WORLD_MANIFEST), &world_manifest)?;
     write_if_missing(&scripts_dir.join(FILE_DEFAULT_SCRIPT), script_content)?;
@@ -85,7 +92,8 @@ fn write_if_missing_yaml<T: serde::Serialize>(path: &Path, value: &T) -> Result<
         return Ok(());
     }
 
-    let content = serde_yaml::to_string(value).map_err(|e| format!("Failed to serialize YAML for '{}': {}", path.display(), e))?;
+    let content = serde_yaml::to_string(value)
+        .map_err(|e| format!("Failed to serialize YAML for '{}': {}", path.display(), e))?;
 
     fs::write(path, content).map_err(|e| format!("Failed to write file '{}': {}", path.display(), e))
 }
