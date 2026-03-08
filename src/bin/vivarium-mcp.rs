@@ -1,10 +1,9 @@
 use rmcp::{ServiceExt, transport::stdio};
-use vivarium::core::project_registry::Registry;
-use vivarium::mcp::VivariumToolServer;
+use vivarium::mcp::{ProjectStore, VivariumToolServer};
 
 #[tokio::main]
 async fn main() ->  Result<(), String>  {
-    let world_registry = Registry::new();
+    let world_registry = ProjectStore::new();
 
     let tool_server =  VivariumToolServer::new(world_registry);
     let service = tool_server.serve(stdio()).await
