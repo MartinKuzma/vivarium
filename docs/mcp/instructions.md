@@ -2,15 +2,16 @@
 This MCP server provides tools to run agent-based simulations using Lua scripts. Agents can send and receive messages, maintain state, and interact within the simulation environment. Simulation time is managed in discrete steps. Simulation can be reset to its initial state.
 
 ## Usage Flow
-1. **Define simulation world** using `create_world` - specify world name and parameters such as entities
-2. **Run simulation** using `advance_simulation` to advance the simulation by multiple steps
-3. **Check state** using `list_entities` to see all entities in the simulation
-4. **Check metrics** using `list_metrics` and `get_metrics` to retrieve recorded metrics
-5. **Manage worlds** using `copy_world`, `list_worlds`, and `delete_world` as needed
-6. **Save/restore state** using `create_world_snapshot` and `restore_world_snapshot` for checkpointing
+1. **Initialize project structure** with `initialize_project` (optional)
+2. **Load project into memory** with `load_project`
+3. **Run simulation** using `advance_simulation`
+4. **Inspect state** with `list_entities`, `get_entity_state`, and `get_project_state`
+5. **Inspect metrics** with `list_metrics`, `get_metric`, and `get_metrics`
+6. **Manage snapshots** with `list_project_snapshots`, `save_project_snapshot`, and `load_project_snapshot`
+7. **Unload project** with `unload_project`
 
 ## Failures
-The server will return errors for invalid operations, such as attempting to create a world that already exists. If the world exceeds the maximum allowed number of entities (10,000), a `WorldCapacityExceeded` error will be returned. That world should be deleted, if no longer needed.
+The server will return errors for invalid operations, such as attempting to load a project that already exists. If a loaded project exceeds the maximum allowed number of entities (10,000), a `WorldCapacityExceeded` error will be returned. Unload the project if no longer needed.
 
 ## Lua Script Requirements
 Each entity script MUST define THREE functions;
@@ -62,7 +63,8 @@ end
     - name: metric name (string)
     - value: metric value (number)
 - `self.destroy(entity_id)` - destroy the entity with the given ID
-- `self.spawn_entity(script_id, initial_state)` - spawn a new entity with the given script and optional initial state
+- `self.spawn_entity(entity_id, script_id, initial_state)` - spawn a new entity with the given script and optional initial state
+    - entity_id: ID of the new entity
     - script_id: ID of the script to use for the new entity
     - initial_state: optional table to set the initial state of the new entity
 
@@ -155,16 +157,19 @@ Run the simulation for 10 steps to observe the structured message exchange.
 ## Available Tools
 
 ### World Management
-- **`create_world`** - Create a new simulation world with the specified configuration including entities, script library, and initial state
-- **`delete_world`** - Delete an existing simulation world by name
-- **`copy_world`** - Copy an existing simulation world to a new world with the specified name (optionally replacing if it exists)
-- **`list_worlds`** - List all existing simulation worlds
-- **`get_world_state`** - Get the overall state of the simulation world, including simulation time, entity count, and pending message count
+- **`initialize_project`** - Create a new project directory containing `world.yaml`, starter Lua script, and initial snapshot files
+- **`load_project`** - Load a project from `world.yaml` and selected snapshot into the in-memory runtime
+- **`unload_project`** - Unload a loaded project from memory by project name
+- **`list_projects`** - List all loaded projects
+- **`get_project_state`** - Get the overall state of the loaded project, including simulation time, entity count, and pending message count
 
 ### Simulation Control
 - **`advance_simulation`** - Advance the simulation by running multiple time steps with a specified step duration. Each step processes pending messages and executes entity update() functions
-- **`create_world_snapshot`** - Create a snapshot of the current state of the simulation world, including entity states and pending messages
-- **`restore_world_snapshot`** - Restore a simulation world to a previously created snapshot state
+
+### Snapshot Management
+- **`list_project_snapshots`** - List available snapshots for a loaded project
+- **`save_project_snapshot`** - Save current loaded world state to a named snapshot under project `snapshots/`
+- **`load_project_snapshot`** - Restore loaded world state from a named snapshot or `latest`
 
 ### Entity Management
 - **`list_entities`** - List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages (optionally include entity states)

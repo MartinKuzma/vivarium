@@ -7,12 +7,12 @@ Vivarium means "place of life", which kind of fits the idea of simulated worlds.
 My motivation is to use LLMs to simulate complex systems of agents and build various simulations that can help understand emergent behaviour. With their reasoning capabilities, LLMs can create numerous simulations and explore different scenarios.
 
 # Features
-- Multiple simulation worlds with named entities
+- Project-based simulation runtime with named entities
 - Behaviour of entities can be scripted using Lua
-- Simulation world with entities that can send messages to each other over time
+- Simulation runtime where entities can send messages to each other over time
 - Time-delayed message delivery system
 - Metrics collection and querying
-- Snapshot and restore simulation state
+- Project snapshot save/load and state restoration
 - MCP server exposing tools to interact with the simulation
 
 # Scripts
@@ -69,22 +69,24 @@ Scripts have access to the following APIs for interacting with the simulation:
 | world.record_metric(name, value) | Record a custom metric value for analysis |
 
 # MCP Tools
-The MCP server exposes various tools to interact with the simulation worlds and entities.
+The MCP server exposes tools to interact with loaded projects and their entities.
+
+Most runtime tools target a loaded project by `project_name`.
+
 | Name | Description |
 |------|-------------|
-| create_world | Create a new simulation world with the specified configuration |
-| delete_world | Delete an existing simulation world by name |
-| copy_world | Copy an existing simulation world to a new world with the specified name |
-| list_worlds | List all existing simulation worlds |
-| list_entities | List all entities currently in the simulation. Returns their IDs which can be used as targets for sending messages. |
-| advance_simulation | Advance the simulation by running multiple time steps. Each step processes pending messages and executes entity update() functions. |
-| get_world_state | Get the overall state of the simulation world, including simulation time, entity count, and pending message count. |
-| set_entity_state | Set the state of a specific entity by its ID. The state must be a JSON object compatible with the entity's Lua script. |
-| get_entity_state | Get the current state of a specific entity by its ID. |
-| list_metrics | List the names of all available metrics in the simulation world. |
+| initialize_project | Create a new project directory with `world.yaml`, starter Lua script, and initial snapshot files. |
+| load_project | Load a project manifest and snapshot into memory. |
+| unload_project | Unload a loaded project from memory. |
+| list_projects | List all currently loaded projects. |
+| list_entities | List all entities in a loaded project. Can include current entity state. |
+| advance_simulation | Advance a loaded project by running multiple time steps. |
+| get_project_state | Get simulation time, entity count, and pending message count for a loaded project. |
+| set_entity_state | Set the state of a specific entity in a loaded project. |
+| get_entity_state | Get the current state of a specific entity in a loaded project. |
+| list_metrics | List the names of all available metrics in a loaded project. |
 | get_metric | Get the current values of a specific metric by name. |
 | get_metrics | Get the current values of multiple metrics by their names. |
-| create_world_snapshot | Create a snapshot of the current state of the simulation world, including entity states and pending messages. |
-| restore_world_snapshot | Restore a simulation world to a previously created snapshot state. |
-| save_world_snapshot_to_file | Save a simulation world snapshot to a YAML file. |
-| load_world_snapshot_from_file | Load a simulation world snapshot from a YAML file. |
+| list_project_snapshots | List snapshots available under a loaded project's `snapshots/` directory. |
+| save_project_snapshot | Save the current loaded project state as a named snapshot. |
+| load_project_snapshot | Load a named snapshot (or `latest`) into a loaded project. |

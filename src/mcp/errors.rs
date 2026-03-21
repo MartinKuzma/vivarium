@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::core::errors::CoreError;
 use rmcp::model::ErrorData as McpError;
 

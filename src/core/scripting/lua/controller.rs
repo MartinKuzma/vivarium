@@ -4,7 +4,7 @@ use crate::core::messaging::Command;
 use crate::core::messaging::JSONObject;
 use crate::core::messaging::Message;
 use crate::core::scripting::lua::convert::{convert_to_json, convert_to_lua_table};
-use crate::core::world::WorldState;
+use crate::core::world::State;
 
 use mlua::Lua;
 use mlua::prelude::*;
@@ -25,7 +25,7 @@ impl LuaScriptController {
     pub fn new(
         id: String,
         script: &String,
-        world_state: Rc<RefCell<WorldState>>,
+        world_state: Rc<RefCell<State>>,
     ) -> Result<Self, mlua::Error> {
         Self::init_lua(&id, &script, world_state)
     }
@@ -33,7 +33,7 @@ impl LuaScriptController {
     fn init_lua(
         id: &String,
         script: &String,
-        world_state: Rc<RefCell<WorldState>>,
+        world_state: Rc<RefCell<State>>,
     ) -> LuaResult<LuaScriptController> {
         let lua = Lua::new();
         let command_queue = Rc::new(RefCell::new(Vec::new()));
@@ -138,7 +138,7 @@ fn register_lua_functions(
     lua: &Lua,
     id: &String,
     command_queue: Rc<RefCell<Vec<Command>>>,
-    world_state: Rc<RefCell<WorldState>>,
+    world_state: Rc<RefCell<State>>,
 ) -> LuaResult<()> {
     register_self_lib(lua, id, command_queue.clone())?;
     register_world_lib(lua, command_queue, world_state)?;
@@ -226,7 +226,7 @@ fn register_self_lib(
 fn register_world_lib(
     lua: &Lua,
     command_queue: Rc<RefCell<Vec<Command>>>,
-    world_state: Rc<RefCell<WorldState>>,
+    world_state: Rc<RefCell<State>>,
 ) -> LuaResult<()> {
     let world_lib = lua.create_table()?;
 

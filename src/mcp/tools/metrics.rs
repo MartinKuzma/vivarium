@@ -1,11 +1,12 @@
 use rmcp::Json;
 use rmcp::ErrorData as McpError;
 use rmcp::schemars;
+use crate::mcp::project_store::ProjectStore;
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ListMetricsRequest {
-    #[schemars(description = "The name of the simulation world to query")]
-    pub world_name: String,
+    #[schemars(description = "The name of the loaded project to query")]
+    pub project_name: String,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -16,8 +17,8 @@ pub struct ListMetricsResponse {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct GetMetricsRequest {
-    #[schemars(description = "The name of the simulation world to query")]
-    pub world_name: String,
+    #[schemars(description = "The name of the loaded project to query")]
+    pub project_name: String,
     #[schemars(description = "List of metric names to retrieve")]
     pub metrics: Vec<String>,
 }
@@ -29,10 +30,10 @@ pub struct GetMetricsResponse {
 }
 
 pub fn list_metrics(
-    registry: &crate::core::registry::Registry,
+    store: &ProjectStore,
     request: ListMetricsRequest,
 ) -> Result<Json<ListMetricsResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.project_name)?;
 
     let world_guard = world.read().unwrap();
     let metrics = world_guard.get_metrics_ref().list_metric_names();
@@ -41,17 +42,17 @@ pub fn list_metrics(
 }
 
 pub fn get_metric(
-    registry: &crate::core::registry::Registry,
-    world_name: String,
+    store: &ProjectStore,
+    project_name: String,
     metric_name: String,
 ) -> Result<Json<crate::core::metrics::MetricStats>, McpError> {
-    let world = registry.get(&world_name)?;
+    let world = store.get(&project_name)?;
 
     let world_guard = world.read().unwrap();
     let metric_stats = world_guard.get_metrics_ref().compute_metric_stats(&metric_name)
         .ok_or_else(|| McpError::new(
             rmcp::model::ErrorCode::INVALID_PARAMS,
-            format!("Metric '{}' not found in world '{}'", metric_name, world_name),
+            format!("Metric '{}' not found in project '{}'", metric_name, project_name),
             None,
         ))?;
 
@@ -59,10 +60,10 @@ pub fn get_metric(
 }
 
 pub fn get_metrics(
-    registry: &crate::core::registry::Registry,
+    store: &ProjectStore,
     request: GetMetricsRequest,
 ) -> Result<Json<GetMetricsResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.project_name)?;
 
     let world_guard = world.read().unwrap();
     let mut metrics = Vec::new();
@@ -74,8 +75,8 @@ pub fn get_metrics(
                 return Err(McpError::new(
                     rmcp::model::ErrorCode::INVALID_PARAMS,
                     format!(
-                        "Metric '{}' not found in world '{}'",
-                        metric_name, request.world_name
+                        "Metric '{}' not found in project '{}'",
+                        metric_name, request.project_name
                     ),
                     None,
                 ));

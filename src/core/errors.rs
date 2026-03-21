@@ -60,3 +60,9 @@ impl From<std::io::Error> for CoreError {
         CoreError::SerializationError(format!("IO error: {}", err))
     }
 }
+
+impl From<CoreError> for String {
+    fn from(err: CoreError) -> Self {
+        err.to_string()
+    }
+}

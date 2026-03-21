@@ -23,6 +23,8 @@ pub struct WorldCfg {
     pub script_library: HashMap<String, ScriptCfg>,
     #[schemars(description = "The entities to initialize in the new world")]
     pub entities: Vec<EntityCfg>,
+    pub pending_messages: Vec<crate::core::messaging::Message>,
+    pub simulation_time: u64,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
@@ -37,11 +39,13 @@ pub struct ScriptCfg {
 }
 
 impl WorldCfg {
-    pub fn new(name: String) -> Self {
+    pub fn empty(name: String) -> Self {
         WorldCfg {
             name,
             script_library: HashMap::new(),
             entities: Vec::new(),
+            pending_messages: Vec::new(),
+            simulation_time: 0,
         }
     }
 
@@ -91,27 +95,5 @@ impl WorldCfg {
         }
 
         Ok(())
-    }
-
-    pub fn from_yaml_file(path: &str) -> Result<Self, CoreError> {
-        let config_data = std::fs::read_to_string(path)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to read world config file: {}", e)))?;
-        
-        let cfg : WorldCfg = serde_yaml::from_str(&config_data)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to parse world config YAML: {}", e)))?;
-
-        cfg.validate()?;
-        Ok(cfg)
-    }
-
-    pub fn from_json_file(path: &str) -> Result<Self, CoreError> {
-        let config_data = std::fs::read_to_string(path)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to read world config file: {}", e)))?;
-        
-        let cfg : WorldCfg = serde_json::from_str(&config_data)
-            .map_err(|e| CoreError::DeserializationError(format!("Failed to parse world config JSON: {}", e)))?;
-
-        cfg.validate()?;
-        Ok(cfg)
     }
 }

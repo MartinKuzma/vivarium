@@ -1,8 +1,12 @@
 use std::collections::HashMap;
-use crate::core::snapshot::MetricsSnapshot;
 use rmcp::{
     schemars
 };
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub struct MetricsSnapshot {
+    pub metrics: HashMap<String, Vec<(u64, f64)>>,
+}
 
 pub struct Metric {
     value : f64,
@@ -41,13 +45,17 @@ impl Metrics {
     pub fn new_from_snapshot(snapshot: &MetricsSnapshot) -> Self {
         let mut metrics = HashMap::new();
         for (name, values) in &snapshot.metrics {
-            let metric_values: Vec<Metric> = values.iter().map(|(timestamp, value)| Metric { timestamp: *timestamp, value: *value }).collect();
+            let metric_values: Vec<Metric> = values
+                .iter()
+                .map(|(timestamp, value)| Metric {
+                    timestamp: *timestamp,
+                    value: *value,
+                })
+                .collect();
             metrics.insert(name.clone(), metric_values);
         }
 
-        Metrics {
-            metrics,
-        }
+        Metrics { metrics }
     }
 
     pub fn record_metric(&mut self, current_time: u64, name : &str, value: f64) {
@@ -104,7 +112,7 @@ impl Metrics {
             snapshot.insert(name.clone(), values);
         }
 
-        MetricsSnapshot { metrics: snapshot}
+        MetricsSnapshot { metrics: snapshot }
     }
 
     pub fn list_metric_names(&self) -> Vec<String> {

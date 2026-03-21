@@ -1,29 +1,49 @@
 use crate::core::messaging::JSONObject;
 use rmcp::Json;
 use rmcp::{ErrorData as McpError, handler::server::wrapper::Parameters, schemars};
+use crate::mcp::project_store::ProjectStore;
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct LoadProjectRequest {
+    #[schemars(description = "The file path of the project manifest to load from")]
+    pub manifest_file_path: String,
+    #[serde(default = "default_snapshot_selection")]
+    #[schemars(description = "Snapshot to load: use 'latest' or a specific snapshot directory name")]
+    pub snapshot: String,
+    #[serde(default)]
+    #[schemars(description = "Reset metrics after loading snapshot")]
+    pub reset_metrics: bool,
+    #[serde(default)]
+    #[schemars(description = "Replace an existing loaded project with the same name")]
+    pub replace_if_loaded: bool,
+}
+
+fn default_snapshot_selection() -> String {
+    "latest".to_string()
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct InitializeProjectRequest {
+    #[schemars(description = "Target directory where a new Vivarium project will be initialized")]
+    pub target_dir: String,
+}
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-pub struct CreateWorldResponse {
+pub struct InitializeProjectResponse {
     #[schemars(description = "Success message")]
     pub message: String,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-pub struct DeleteWorldResponse {
+pub struct LoadProjectResponse {
     #[schemars(description = "Success message")]
     pub message: String,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-pub struct CopyWorldResponse {
+pub struct UnloadProjectResponse {
     #[schemars(description = "Success message")]
     pub message: String,
-}
-
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-pub struct ListWorldsResponse {
-    #[schemars(description = "List of world names")]
-    pub worlds: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -39,19 +59,9 @@ pub struct GetEntityStateResponse {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct CopyWorldRequest {
-    #[schemars(description = "The name of the source simulation world to copy from")]
-    pub source_world_name: String,
-    #[schemars(description = "The name of the target simulation world to copy to")]
-    pub target_world_name: String,
-    #[schemars(description = "Whether to replace the target world if it already exists")]
-    pub replace_if_exists: bool,
-}
-
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct RunSimulationRequest {
-    #[schemars(description = "The name of the simulation world to advance")]
-    pub world_name: String,
+    #[schemars(description = "The name of the loaded project to advance")]
+    pub project_name: String,
     #[schemars(description = "The duration of each step in seconds")]
     pub step_duration: u64,
     #[schemars(description = "The number of steps to run")]
@@ -63,8 +73,8 @@ pub struct RunSimulationRequest {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct SetEntityStateRequest {
-    #[schemars(description = "The name of the simulation world containing the entity")]
-    pub world_name: String,
+    #[schemars(description = "The name of the loaded project containing the entity")]
+    pub project_name: String,
     #[schemars(description = "The unique ID of the entity")]
     pub entity_id: String,
     #[schemars(description = "The state as a JSON object to set for the entity")]
@@ -89,22 +99,28 @@ pub struct AdvanceSimulationResponse {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ListEntitiesRequest {
-    #[schemars(description = "The name of the simulation world to query")]
-    pub world_name: String,
+    #[schemars(description = "The name of the loaded project to query")]
+    pub project_name: String,
     #[schemars(description = "Whether to include the states of the entities in the response")]
     pub include_states: bool,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct GetWorldStateRequest {
-    pub world_name: String,
+pub struct GetProjectStateRequest {
+    pub project_name: String,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-pub struct GetWorldStateResponse {
+pub struct GetProjectStateResponse {
     pub simulation_time: u64,
     pub entities_count: usize,
     pub pending_messages_count: usize,
+}
+
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ListProjectsResponse {
+    #[schemars(description = "List of loaded project names")]
+    pub projects: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
@@ -114,14 +130,14 @@ pub struct ListEntitiesResponse {
 }
 
 pub fn list_entities(
-    registry: &crate::core::registry::Registry,
+    registry: &ProjectStore,
     Parameters(request): Parameters<ListEntitiesRequest>,
 ) -> Result<Json<ListEntitiesResponse>, McpError> {
     let mut resp = ListEntitiesResponse {
         entities: Vec::new(),
     };
 
-    let world = registry.get(&request.world_name)?;
+    let world = registry.get(&request.project_name)?;
 
     let world = world.read().unwrap();
 
@@ -158,13 +174,13 @@ pub fn list_entities(
 }
 
 pub fn advance_simulation(
-    registry: &crate::core::registry::Registry,
+    registry: &ProjectStore,
     Parameters(request): Parameters<RunSimulationRequest>,
 ) -> Result<Json<AdvanceSimulationResponse>, McpError> {
     let mut delivered_messages: Vec<String> = Vec::new();
     let mut number_of_messages = 0;
 
-    let world = registry.get(&request.world_name)?;
+    let world = registry.get(&request.project_name)?;
 
     for _ in 0..request.num_steps {
         match world.write().unwrap().update(request.step_duration) {
@@ -193,63 +209,45 @@ pub fn advance_simulation(
     }))
 }
 
-pub fn list_worlds(registry: &crate::core::registry::Registry) -> Result<Json<ListWorldsResponse>, McpError> {
-    let worlds = registry.list();
-    Ok(Json(ListWorldsResponse { worlds }))
+pub fn list_projects(registry: &ProjectStore) -> Result<Json<ListProjectsResponse>, McpError> {
+    let projects = registry.list();
+    Ok(Json(ListProjectsResponse { projects }))
 }
 
 pub fn set_entity_state(
-    registry: &crate::core::registry::Registry,
+    store: &ProjectStore,
     request: SetEntityStateRequest,
 ) -> Result<Json<SetEntityStateResponse>, McpError> {
-    let world = registry.get(&request.world_name)?;
+    let world = store.get(&request.project_name)?;
 
     world.write().unwrap().set_entity_state(&request.entity_id, request.state)?;
 
     Ok(Json(SetEntityStateResponse {
-        message: format!("State set for entity '{}' in world '{}'", request.entity_id, request.world_name),
+        message: format!("State set for entity '{}' in project '{}'", request.entity_id, request.project_name),
     }))
 }
 
 pub fn get_entity_state(
-    registry: &crate::core::registry::Registry,
-    world_name: String,
+    store: &ProjectStore,
+    project_name: String,
     entity_id: String,
 ) -> Result<Json<GetEntityStateResponse>, McpError> {
-    let world = registry.get(&world_name)?;
+    let world = store.get(&project_name)?;
 
     let state = world.read().unwrap().get_entity_state(&entity_id)?;
 
     Ok(Json(GetEntityStateResponse { state }))
 }
 
-pub fn copy_world(
-    registry: &crate::core::registry::Registry,
-    request: CopyWorldRequest,
-) -> Result<Json<CopyWorldResponse>, McpError> {
-    registry.copy(
-        &request.source_world_name,
-        &request.target_world_name,
-        request.replace_if_exists,
-    )?;
-
-    Ok(Json(CopyWorldResponse {
-        message: format!(
-            "World '{}' copied to '{}' successfully",
-            request.source_world_name, request.target_world_name
-        ),
-    }))
-}
-
-pub fn get_world_state(
-    registry: &crate::core::registry::Registry,
-    request: GetWorldStateRequest,
-) -> Result<Json<GetWorldStateResponse>, McpError> {
-    let world_rc = registry.get(&request.world_name)?;
+pub fn get_project_state(
+    store: &ProjectStore,
+    request: GetProjectStateRequest,
+) -> Result<Json<GetProjectStateResponse>, McpError> {
+    let world_rc = store.get(&request.project_name)?;
 
     let world = world_rc.read().unwrap();
     
-    let response = GetWorldStateResponse {
+    let response = GetProjectStateResponse {
         simulation_time: world.get_simulation_time(),
         entities_count: world.get_entities_count(),
         pending_messages_count: world.get_pending_messages_count(),
